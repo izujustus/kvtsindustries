@@ -1,0 +1,666 @@
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "mysql" if you are using MySQL
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS (Type Definitions)
+// ============================================================================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  ACCOUNTANT
+  PRODUCTION_MANAGER
+  SALES_MANAGER
+  STORE_KEEPER
+  HR
+  USER
+}
+
+enum CurrencyCode {
+  USD
+  EUR
+  NGN
+  GBP
+  // Add other currencies as needed
+}
+
+enum AssetStatus {
+  ACTIVE
+  IN_REPAIR
+  LOST
+  DAMAGED
+  DISPOSED
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum ExpensePaymentMethod {
+  CASH
+  TRANSFER
+  CHEQUE
+  POS
+  MOBILE_MONEY
+}
+
+enum RecurringInterval {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHECK
+  CREDIT_FROM_OVERPAYMENT // Handles your specific debtor logic
+}
+
+enum ProductType {
+  RAW_MATERIAL     // Rubber, Chemicals, Steel
+  WORK_IN_PROGRESS
+  FINISHED_GOOD    // Tires
+  SERVICE
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum DeprMethod {
+  STRAIGHT_LINE
+  DECLINING_BALANCE
+  UNITS_OF_PRODUCTION
+}
+
+// ============================================================================
+// 1. AUTHENTICATION & CORE SETTINGS
+// ============================================================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // RELATIONS
+  // Link to Employee Profile (if this user is also an employee)
+  employeeProfile  Employee?
+
+  // Actions performed by this user
+  approvedExpenses Expense[]       @relation("ExpenseApprover")
+  purchaseOrders   PurchaseOrder[] @relation("POCreator")
+  journalEntries   JournalEntry[]  @relation("EntryCreator")
+
+  @@map("users")
+}
+
+model Currency {
+  id             String       @id @default(cuid())
+  code           CurrencyCode @unique
+  name           String
+  symbol         String
+  isBaseCurrency Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // RELATIONS
+  exchangeRates ExchangeRate[]
+  invoices      SalesInvoice[]
+  payments      CustomerPayment[]
+  expenses      Expense[]
+  employees     Employee[]
+  payrolls      Payroll[]
+
+  @@map("currencies")
+}
+
+model ExchangeRate {
+  id         String   @id @default(cuid())
+  currencyId String
+  rate       Decimal  @db.Decimal(18, 6)
+  date       DateTime @default(now())
+
+  currency   Currency @relation(fields: [currencyId], references: [id], onDelete: Cascade)
+
+  @@index([currencyId, date])
+  @@map("exchange_rates")
+}
+
+// ============================================================================
+// 2. HR & PAYROLL MANAGEMENT
+// ============================================================================
+
+model Employee {
+  id             String   @id @default(cuid())
+  
+  // Basic Details
+  employeeNumber String   @unique // e.g., EMP-001
+  firstName      String
+  lastName       String
+  email          String?  @unique
+  phone          String?
+  address        String?  @db.Text
+  
+  // Job Details
+  department     String
+  position       String
+  hireDate       DateTime
+  status         String   @default("ACTIVE") // ACTIVE, TERMINATED, ON_LEAVE
+  
+  // Compensation
+  basicSalary    Decimal  @db.Decimal(18, 2)
+  currencyId     String
+  
+  // Link to System User
+  // (Optional: Only if this employee needs to login to the app)
+  userId         String?  @unique 
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // RELATIONS
+  currency       Currency  @relation(fields: [currencyId], references: [id])
+  user           User?     @relation(fields: [userId], references: [id])
+  assignedAssets Asset[]   // Company assets held by this employee
+  payrolls       Payroll[] // History of payments
+
+  @@map("employees")
+}
+
+model Payroll {
+  id              String   @id @default(cuid())
+  employeeId      String
+  payPeriodStart  DateTime
+  payPeriodEnd    DateTime
+  
+  basicSalary     Decimal  @db.Decimal(18, 2)
+  totalAllowances Decimal  @db.Decimal(18, 2) @default(0)
+  totalDeductions Decimal  @db.Decimal(18, 2) @default(0)
+  netPay          Decimal  @db.Decimal(18, 2)
+  
+  currencyId      String
+  status          String   @default("DRAFT") // DRAFT, PROCESSED, PAID
+  paymentDate     DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  employee        Employee           @relation(fields: [employeeId], references: [id])
+  currency        Currency           @relation(fields: [currencyId], references: [id])
+  components      PayrollComponent[]
+
+  @@map("payrolls")
+}
+
+model PayrollComponent {
+  id        String  @id @default(cuid())
+  payrollId String
+  name      String  // e.g., "Overtime", "Tax"
+  type      String  // EARNING, DEDUCTION
+  amount    Decimal @db.Decimal(18, 2)
+  
+  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  @@map("payroll_components")
+}
+
+// ============================================================================
+// 3. ASSET MANAGEMENT (Comprehensive)
+// ============================================================================
+
+model Asset {
+  id                   String      @id @default(cuid())
+  
+  // Identification
+  assetTag             String      @unique // Unique Company ID tag
+  name                 String
+  category             String      // Machinery, Vehicle, IT
+  description          String?     @db.Text
+  serialNumber         String?     @unique
+  
+  // Acquisition
+  purchaseDate         DateTime
+  purchaseCost         Decimal     @db.Decimal(18, 2)
+  vendor               String?     // External vendor name
+  supplierId           String?     // Link to Supplier DB (if applicable)
+  
+  // Warranty
+  warrantyStart        DateTime?
+  warrantyEnd          DateTime?
+  warrantyPeriodMonths Int?
+  
+  // State & Location
+  status               AssetStatus @default(ACTIVE)
+  condition            String?     // New, Good, Poor
+  location             String?
+  department           String?
+  
+  // Assignment (Who has it?)
+  assignedToEmployeeId String?
+  
+  // Maintenance Tracking
+  lastMaintenance      DateTime?
+  nextMaintenance      DateTime?
+  
+  // Disposal Logic
+  disposed             Boolean     @default(false)
+  disposalDate         DateTime?
+  disposalReason       String?     @db.Text
+  
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  // RELATIONS
+  assignedTo           Employee?          @relation(fields: [assignedToEmployeeId], references: [id])
+  supplier             Supplier?          @relation(fields: [supplierId], references: [id])
+  maintenanceRecords   AssetMaintenance[]
+
+  @@map("assets")
+}
+
+model AssetMaintenance {
+  id              String   @id @default(cuid())
+  assetId         String
+  maintenanceDate DateTime
+  description     String   @db.Text
+  cost            Decimal  @db.Decimal(18, 2)
+  performedBy     String?
+  createdAt       DateTime @default(now())
+  
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("asset_maintenances")
+}
+
+// ============================================================================
+// 4. PRODUCTION & INVENTORY (Manufacturing Core)
+// ============================================================================
+
+model Product {
+  id           String      @id @default(cuid())
+  code         String      @unique // SKU
+  name         String
+  type         ProductType @default(FINISHED_GOOD)
+  brand        String?     // KNT, GIWA
+  description  String?
+  
+  // Inventory Tracking
+  stockOnHand  Int         @default(0)
+  reorderLevel Int         @default(10)
+  
+  // Financials
+  costPrice    Decimal     @db.Decimal(18, 2)
+  sellingPrice Decimal     @db.Decimal(18, 2)
+  
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // RELATIONS
+  inventoryMovements InventoryMovement[]
+  invoiceItems       SalesInvoiceItem[]
+  poItems            PurchaseOrderItem[]
+  
+  // Bill of Materials (BOM) Logic
+  bomParent          BillOfMaterial[]    @relation("BOMParent")    // If this is a tire, what makes it?
+  bomChild           BillOfMaterial[]    @relation("BOMComponent") // If this is rubber, what uses it?
+  
+  productionReports  ProductionReport[]
+
+  @@map("products")
+}
+
+model BillOfMaterial {
+  id          String  @id @default(cuid())
+  parentId    String  // The Finished Tire
+  componentId String  // The Raw Material
+  quantity    Decimal @db.Decimal(12, 4) // Amount needed per unit
+  
+  parent      Product @relation("BOMParent", fields: [parentId], references: [id])
+  component   Product @relation("BOMComponent", fields: [componentId], references: [id])
+
+  @@unique([parentId, componentId])
+  @@map("bill_of_materials")
+}
+
+model InventoryMovement {
+  id          String   @id @default(cuid())
+  productId   String
+  type        String   // SALE, PURCHASE, PRODUCTION, ADJUSTMENT
+  quantity    Int      // Positive (add) or Negative (remove)
+  referenceId String?  // ID of Invoice, PO, etc.
+  date        DateTime @default(now())
+  
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId, date])
+  @@map("inventory_movements")
+}
+
+model ProductionReport {
+  id           String   @id @default(cuid())
+  batchNumber  String   @unique
+  date         DateTime
+  shift        String   // DAY, NIGHT
+  
+  productId    String   // The Tire Produced
+  totalQty     Int
+  qualifiedQty Int
+  rejectedQty  Int      @default(0)
+  
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  product      Product            @relation(fields: [productId], references: [id])
+  defects      ProductionDefect[]
+
+  @@map("production_reports")
+}
+
+model ProductionDefect {
+  id                 String @id @default(cuid())
+  productionReportId String
+  defectType         String // BUBBLE, CRACK
+  quantity           Int
+  
+  productionReport   ProductionReport @relation(fields: [productionReportId], references: [id], onDelete: Cascade)
+
+  @@map("production_defects")
+}
+
+// ============================================================================
+// 5. SALES, CUSTOMERS & DEBTORS (Overpayment Logic)
+// ============================================================================
+
+model Customer {
+  id             String   @id @default(cuid())
+  name           String
+  code           String?  @unique
+  email          String?
+  phone          String?
+  address        String?  @db.Text
+  
+  // Debtor Logic:
+  // Positive = Customer owes us. 
+  // Negative = We owe customer (Overpayment/Credit).
+  currentBalance Decimal  @db.Decimal(18, 2) @default(0) 
+  creditLimit    Decimal? @db.Decimal(18, 2)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  invoices       SalesInvoice[]
+  payments       CustomerPayment[]
+
+  @@map("customers")
+}
+
+model SalesInvoice {
+  id             String        @id @default(cuid())
+  invoiceNumber  String        @unique
+  customerId     String
+  date           DateTime
+  dueDate        DateTime
+  
+  currencyId     String
+  exchangeRate   Decimal       @db.Decimal(18, 6) @default(1)
+  
+  totalAmount    Decimal       @db.Decimal(18, 2)
+  paidAmount     Decimal       @db.Decimal(18, 2) @default(0)
+  balanceDue     Decimal       @db.Decimal(18, 2) // total - paid
+  
+  status         InvoiceStatus @default(DRAFT)
+  notes          String?
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  customer       Customer             @relation(fields: [customerId], references: [id])
+  currency       Currency             @relation(fields: [currencyId], references: [id])
+  items          SalesInvoiceItem[]
+  payments       PaymentApplication[] // Links invoice to payments
+  
+  // Accounting Link
+  journalEntryId String?              @unique
+  journalEntry   JournalEntry?        @relation(fields: [journalEntryId], references: [id])
+
+  @@map("sales_invoices")
+}
+
+model SalesInvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(18, 2)
+  total     Decimal @db.Decimal(18, 2)
+  taxAmount Decimal @db.Decimal(18, 2) @default(0)
+
+  invoice   SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId], references: [id])
+
+  @@map("sales_invoice_items")
+}
+
+model CustomerPayment {
+  id            String        @id @default(cuid())
+  paymentNumber String        @unique
+  customerId    String
+  date          DateTime      @default(now())
+  
+  amount        Decimal       @db.Decimal(18, 2) // Total received
+  unusedAmount  Decimal       @db.Decimal(18, 2) // Amount sitting as credit (Overpayment)
+  
+  method        PaymentMethod
+  reference     String?       // Check #
+  currencyId    String
+
+  customer      Customer             @relation(fields: [customerId], references: [id])
+  currency      Currency             @relation(fields: [currencyId], references: [id])
+  applications  PaymentApplication[] // Which invoices did this pay?
+
+  @@map("customer_payments")
+}
+
+model PaymentApplication {
+  id            String   @id @default(cuid())
+  paymentId     String
+  invoiceId     String
+  amountApplied Decimal  @db.Decimal(18, 2)
+  appliedAt     DateTime @default(now())
+
+  payment       CustomerPayment @relation(fields: [paymentId], references: [id])
+  invoice       SalesInvoice    @relation(fields: [invoiceId], references: [id])
+
+  @@map("payment_applications")
+}
+
+// ============================================================================
+// 6. PURCHASING & SUPPLIERS
+// ============================================================================
+
+model Supplier {
+  id             String   @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  balance        Decimal  @db.Decimal(18, 2) @default(0)
+  
+  createdAt      DateTime @default(now())
+  
+  purchaseOrders PurchaseOrder[]
+  assets         Asset[]
+  expenses       Expense[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id          String   @id @default(cuid())
+  poNumber    String   @unique
+  supplierId  String
+  date        DateTime @default(now())
+  status      String   @default("DRAFT")
+  
+  totalAmount Decimal  @db.Decimal(18, 2)
+  createdById String
+  
+  supplier    Supplier            @relation(fields: [supplierId], references: [id])
+  creator     User                @relation("POCreator", fields: [createdById], references: [id])
+  items       PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  quantity        Int
+  unitCost        Decimal @db.Decimal(18, 2)
+  total           Decimal @db.Decimal(18, 2)
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product         Product       @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+// ============================================================================
+// 7. EXPENSE TRACKING (Comprehensive)
+// ============================================================================
+
+model Expense {
+  id                String               @id @default(cuid())
+  
+  // Identification
+  expenseCode       String               @unique // e.g., EXP-2024-001
+  title             String
+  description       String?              @db.Text
+  category          String               // Fuel, Repair, Utilities
+  
+  // Financials
+  amount            Decimal              @db.Decimal(18, 2)
+  currencyId        String
+  paymentMethod     ExpensePaymentMethod
+  
+  // Vendor/Payee
+  vendor            String?              // External payee
+  supplierId        String?              // Registered supplier
+  
+  // Metadata
+  incurredDate      DateTime
+  department        String?
+  project           String?
+  
+  // Approval
+  status            ExpenseStatus        @default(PENDING)
+  approvedById      String?              // Manager who approved
+  
+  // Proof
+  attachmentUrl     String?              // Receipt URL
+  
+  // Recurring
+  recurring         Boolean              @default(false)
+  recurringInterval RecurringInterval?
+  
+  notes             String?              @db.Text
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  // RELATIONS
+  currency          Currency       @relation(fields: [currencyId], references: [id])
+  approvedBy        User?          @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  supplier          Supplier?      @relation(fields: [supplierId], references: [id])
+  
+  // Accounting Link
+  journalEntryId    String?        @unique
+  journalEntry      JournalEntry?  @relation(fields: [journalEntryId], references: [id])
+
+  @@map("expenses")
+}
+
+// ============================================================================
+// 8. ACCOUNTING (General Ledger)
+// ============================================================================
+
+model ChartOfAccount {
+  id              String   @id @default(cuid())
+  code            String   @unique // 1000, 2000
+  name            String   // Cash, AR, AP
+  type            AccountType
+  isSystemAccount Boolean  @default(false) // Cannot delete system accounts
+  
+  entries         JournalEntryLine[]
+
+  @@map("chart_of_accounts")
+}
+
+model JournalEntry {
+  id           String   @id @default(cuid())
+  entryNumber  String   @unique
+  date         DateTime
+  description  String?
+  reference    String?  // Invoice #, PO #
+  posted       Boolean  @default(false)
+  createdById  String?
+  
+  createdAt    DateTime @default(now())
+
+  creator      User?              @relation("EntryCreator", fields: [createdById], references: [id])
+  lines        JournalEntryLine[]
+  
+  // Reverse links to source documents
+  salesInvoice SalesInvoice?
+  expense      Expense?
+
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id             String  @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  
+  debit          Decimal @db.Decimal(18, 2) @default(0)
+  credit         Decimal @db.Decimal(18, 2) @default(0)
+  
+  account        ChartOfAccount @relation(fields: [accountId], references: [id])
+  journalEntry   JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@map("journal_entry_lines")
+}
