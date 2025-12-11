@@ -1,7 +1,6 @@
-// import { auth } from '@/auth';
 import { auth } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
-import { Calendar, Bell, Gift, Megaphone, Cake, Sparkles, Settings } from 'lucide-react'; 
+import { Calendar, Bell, Gift, Megaphone, Cake, Sparkles } from 'lucide-react'; 
 import AnnouncementFeed from './announcement-feed';
 
 const prisma = new PrismaClient();
@@ -20,13 +19,14 @@ export default async function DashboardPage() {
   });
 
   // 2. Fetch Employees & Filter Birthdays
+  // FIX: We must update this query to handle the new Department Table
   const employees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' },
     select: { 
       id: true, 
       firstName: true, 
       lastName: true, 
-      // FIX: Select the Name from the Department Relation
+      // NEW: Select the NAME from the related Department table
       department: {
         select: { name: true }
       },
@@ -54,12 +54,12 @@ export default async function DashboardPage() {
       bDayThisYear.setFullYear(today.getFullYear() + 1);
     }
 
-    // FIX: Flatten department name for the UI
+    // FIX: Flatten the object { department: { name: '...' } } to just a string
     const deptName = emp.department?.name || 'General';
 
     const empWithDate = { 
       ...emp, 
-      department: deptName, // Override object with string for display
+      department: deptName, // Pass simple string to UI
       birthdayThisYear: bDayThisYear 
     };
 
@@ -74,6 +74,7 @@ export default async function DashboardPage() {
 
   // 3. Role-Based Quick Stat
   let quickStat = { label: 'System Status', value: 'Online' };
+  
   if (userRole === 'STORE_KEEPER') {
     const lowStock = await prisma.product.count({ where: { stockOnHand: { lte: 10 } } });
     quickStat = { label: 'Low Stock Alerts', value: lowStock.toString() };
@@ -194,7 +195,7 @@ export default async function DashboardPage() {
           {/* HELPER CARD */}
           <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 shadow-sm">
             <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-              <Settings className="w-4 h-4 text-gray-500" /> Quick Actions
+              <SettingsIcon className="w-4 h-4 text-gray-500" /> Quick Actions
             </h4>
             <p className="text-sm text-gray-600 mb-4 leading-relaxed">
               Need to update your password or personal details? Visit your settings profile to manage your account security.
@@ -208,4 +209,25 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+// Helper icon component for the bottom card
+function SettingsIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
 }
