@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { Factory, AlertCircle, CheckCircle, Download } from 'lucide-react'; // Added missing imports
-import SearchBar from '@/app/ui/users/search';
+import { Plus, Download, Factory, AlertCircle, CheckCircle } from 'lucide-react';
+import SearchBar from '@/app/ui/users/search'; 
 import ProductionClientWrapper from './client-wrapper';
 
 const prisma = new PrismaClient();
@@ -8,20 +8,20 @@ const prisma = new PrismaClient();
 export default async function ProductionPage({
   searchParams,
 }: {
-  // FIX 1: Type definition must be a Promise
+  // FIX: Promise type
   searchParams: Promise<{ query?: string; page?: string }>;
 }) {
-  // FIX 2: Await the params before using them
+  // FIX: Await the params
   const params = await searchParams;
   const query = params?.query || '';
   
-  // 1. Fetch Products (For Dropdown)
+  // 1. Fetch Products
   const products = await prisma.product.findMany({
     select: { id: true, name: true, code: true, brand: true },
-    where: { type: 'FINISHED_GOOD' }
+    where: { type: 'FINISHED_GOOD' } 
   });
 
-  // 2. Fetch Reports (With Filtering)
+  // 2. Fetch Reports
   const reports = await prisma.productionReport.findMany({
     where: {
       OR: [
@@ -31,13 +31,13 @@ export default async function ProductionPage({
     },
     include: {
       product: true,
-      defects: true,
+      defects: true, 
     },
     orderBy: { date: 'desc' },
-    take: 50
+    take: 50 
   });
 
-  // 3. Calculate Stats
+  // 3. Stats
   const totalProduced = reports.reduce((sum, r) => sum + r.totalQty, 0);
   const totalRejected = reports.reduce((sum, r) => sum + r.rejectedQty, 0);
   const defectRate = totalProduced > 0 ? ((totalRejected / totalProduced) * 100).toFixed(1) : '0';
@@ -78,7 +78,7 @@ export default async function ProductionPage({
         </div>
       </div>
 
-      {/* SEARCH & FILTER */}
+      {/* SEARCH */}
       <div className="bg-white p-4 rounded-t-xl border border-b-0 border-gray-200 flex justify-between gap-4">
         <div className="w-full max-w-md"><SearchBar /></div>
       </div>
