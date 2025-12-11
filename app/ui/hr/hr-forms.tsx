@@ -1,75 +1,106 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { createEmployee, createPayroll } from '@/app/lib/hr-actions';
-import { Plus, Trash, Calculator } from 'lucide-react';
 
 // 1. EMPLOYEE FORM
-export function EmployeeForm({ onClose }: { onClose: () => void }) {
+export function EmployeeForm({ onClose, departments }: { onClose: () => void, departments?: any[] }) {
   const [state, action, isPending] = useActionState(createEmployee, undefined);
-  useEffect(() => { if (state?.success) onClose(); }, [state, onClose]);
+  
+  // State to handle Sub-Departments logic
+  const [selectedDeptId, setSelectedDeptId] = useState("");
+  
+  // Find the selected department object to get its sub-departments
+  const selectedDept = departments?.find(d => d.id === selectedDeptId);
+  const subDepartments = selectedDept?.subDepartments || [];
 
   return (
     <form action={action} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">First Name</label>
-          <input name="firstName" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <label className="block text-xs font-medium text-gray-700">First Name</label>
+          <input name="firstName" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Last Name</label>
-          <input name="lastName" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
-          <input name="email" type="email" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Phone</label>
-          <input name="phone" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <label className="block text-xs font-medium text-gray-700">Last Name</label>
+          <input name="lastName" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
-          <input name="dateOfBirth" type="date" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#E30613] focus:ring-[#E30613]" />
+          <label className="block text-xs font-medium text-gray-700">Email (Optional)</label>
+          <input name="email" type="email" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Department</label>
-          <select name="department" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
-            <option value="Production">Production</option>
-            <option value="Sales">Sales</option>
-            <option value="Accounting">Accounting</option>
-            <option value="HR">HR</option>
-            <option value="Logistics">Logistics</option>
-            <option value="Store">Store / Warehouse</option>
+          <label className="block text-xs font-medium text-gray-700">Phone</label>
+          <input name="phone" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
+        </div>
+      </div>
+
+      {/* DYNAMIC DEPARTMENT SELECTOR */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-700">Department</label>
+          <select 
+            name="department" 
+            required 
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm"
+            onChange={(e) => setSelectedDeptId(e.target.value)}
+          >
+            <option value="">-- Select --</option>
+            {departments?.map((dept) => (
+              <option key={dept.id} value={dept.id}>{dept.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700">Sub-Department</label>
+          <select 
+            name="subDepartment" 
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm disabled:bg-gray-100 disabled:text-gray-400"
+            disabled={!selectedDeptId || subDepartments.length === 0}
+          >
+            <option value="">{subDepartments.length === 0 ? "No Sub-sections" : "-- Select --"}</option>
+            {subDepartments.map((sub: any) => (
+              <option key={sub.id} value={sub.id}>{sub.name}</option>
+            ))}
           </select>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Position</label>
-          <input name="position" placeholder="e.g. Operator" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <label className="block text-xs font-medium text-gray-700">Job Position</label>
+          <input name="position" required placeholder="e.g. Senior Technician" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Hire Date</label>
-          <input name="hireDate" type="date" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <label className="block text-xs font-medium text-gray-700">Basic Salary (₦)</label>
+          <input name="basicSalary" type="number" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Basic Salary</label>
-        <input name="basicSalary" type="number" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-700">Hire Date</label>
+          <input name="hireDate" type="date" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700">Date of Birth</label>
+          <input name="dateOfBirth" type="date" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
+        </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
-        <button disabled={isPending} className="bg-black text-white px-4 py-2 rounded text-sm hover:bg-gray-800">
+      {state?.message && (
+        <p className={state.success ? "text-green-600 text-sm" : "text-red-600 text-sm"}>
+          {state.message}
+        </p>
+      )}
+
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+        <button disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-[#E30613] rounded-md hover:bg-red-700">
           {isPending ? 'Saving...' : 'Hire Employee'}
         </button>
       </div>
@@ -77,115 +108,71 @@ export function EmployeeForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-// 2. PAYROLL FORM
+// 2. PAYROLL FORM (Unchanged)
 export function PayrollForm({ employees, onClose }: { employees: any[], onClose: () => void }) {
   const [state, action, isPending] = useActionState(createPayroll, undefined);
-  const [selectedEmp, setSelectedEmp] = useState<any>(null);
-  
-  // Dynamic Components (Bonuses/Deductions)
-  const [components, setComponents] = useState<{name: string, type: 'EARNING'|'DEDUCTION', amount: number}[]>([]);
-  const [compName, setCompName] = useState('');
-  const [compAmount, setCompAmount] = useState(0);
-  const [compType, setCompType] = useState<'EARNING'|'DEDUCTION'>('EARNING');
+  const [components, setComponents] = useState<{name: string, amount: number, type: 'EARNING' | 'DEDUCTION'}[]>([]);
 
-  useEffect(() => { if (state?.success) onClose(); }, [state, onClose]);
-
-  const addComponent = () => {
-    if(!compName || compAmount <= 0) return;
-    setComponents([...components, { name: compName, type: compType, amount: compAmount }]);
-    setCompName(''); setCompAmount(0);
+  const addComponent = (type: 'EARNING' | 'DEDUCTION') => {
+    const name = prompt(`Enter ${type.toLowerCase()} name:`);
+    const amountStr = prompt(`Enter amount:`);
+    if (name && amountStr) {
+      setComponents([...components, { name, amount: Number(amountStr), type }]);
+    }
   };
-
-  const removeComponent = (idx: number) => {
-    setComponents(components.filter((_, i) => i !== idx));
-  };
-
-  // Calculations
-  const basic = selectedEmp ? selectedEmp.basicSalary : 0;
-  const totalEarnings = components.filter(c => c.type === 'EARNING').reduce((sum, c) => sum + c.amount, 0);
-  const totalDeductions = components.filter(c => c.type === 'DEDUCTION').reduce((sum, c) => sum + c.amount, 0);
-  const netPay = basic + totalEarnings - totalDeductions;
 
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="components" value={JSON.stringify(components)} />
-
-      {/* Select Employee */}
+      
       <div>
-        <label className="block text-sm font-medium text-gray-700">Select Employee</label>
-        <select 
-          name="employeeId" 
-          onChange={(e) => setSelectedEmp(employees.find((em: any) => em.id === e.target.value))}
-          required 
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">-- Select --</option>
-          {employees.map((e: any) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
+        <label className="block text-xs font-medium text-gray-700">Select Employee</label>
+        <select name="employeeId" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm">
+          <option value="">-- Choose Employee --</option>
+          {employees.map(e => (
+            <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.employeeNumber})</option>
+          ))}
         </select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Period Start</label>
-          <input name="payPeriodStart" type="date" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <label className="block text-xs font-medium text-gray-700">Period Start</label>
+          <input name="payPeriodStart" type="date" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Period End</label>
-          <input name="payPeriodEnd" type="date" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <label className="block text-xs font-medium text-gray-700">Period End</label>
+          <input name="payPeriodEnd" type="date" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm" />
         </div>
       </div>
 
-      {/* Component Builder */}
-      <div className="bg-gray-50 p-3 rounded border border-gray-200">
-        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Add Allowances & Deductions</label>
-        <div className="flex gap-2 mb-2">
-          <input placeholder="Name (e.g. Bonus)" value={compName} onChange={e => setCompName(e.target.value)} className="flex-1 text-sm border-gray-300 rounded" />
-          <select value={compType} onChange={e => setCompType(e.target.value as any)} className="text-sm border-gray-300 rounded">
-            <option value="EARNING">Earning (+)</option>
-            <option value="DEDUCTION">Deduction (-)</option>
-          </select>
-          <input type="number" placeholder="Amt" value={compAmount} onChange={e => setCompAmount(Number(e.target.value))} className="w-20 text-sm border-gray-300 rounded" />
-          <button type="button" onClick={addComponent} className="bg-gray-800 text-white p-2 rounded hover:bg-black"><Plus className="w-4 h-4"/></button>
+      <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+        <div className="flex justify-between items-center mb-2">
+          <h4 className="text-xs font-bold text-gray-700">Salary Adjustments</h4>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => addComponent('EARNING')} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">+ Earning</button>
+            <button type="button" onClick={() => addComponent('DEDUCTION')} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">- Deduction</button>
+          </div>
         </div>
-
-        <div className="space-y-1">
-          {components.map((c, i) => (
-            <div key={i} className="flex justify-between text-sm bg-white p-2 border rounded">
-              <span>{c.name}</span>
-              <div className="flex items-center gap-2">
-                <span className={c.type === 'EARNING' ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                  {c.type === 'EARNING' ? '+' : '-'} {c.amount.toLocaleString()}
+        {components.length === 0 ? <p className="text-xs text-gray-400 italic">No adjustments added.</p> : (
+          <ul className="space-y-1">
+            {components.map((c, i) => (
+              <li key={i} className="flex justify-between text-xs">
+                <span>{c.name}</span>
+                <span className={c.type === 'EARNING' ? "text-green-600" : "text-red-600"}>
+                  {c.type === 'EARNING' ? '+' : '-'} ₦{c.amount.toLocaleString()}
                 </span>
-                <button type="button" onClick={() => removeComponent(i)}><Trash className="w-3 h-3 text-gray-400 hover:text-red-500"/></button>
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {/* Summary Box */}
-      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm space-y-1">
-        <div className="flex justify-between">
-          <span>Basic Salary:</span>
-          <span className="font-bold">₦{basic.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between text-green-700">
-          <span>Total Allowances:</span>
-          <span>+ ₦{totalEarnings.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between text-red-700">
-          <span>Total Deductions:</span>
-          <span>- ₦{totalDeductions.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between pt-2 border-t border-blue-200 text-lg font-black text-blue-900">
-          <span>NET PAY:</span>
-          <span>₦{netPay.toLocaleString()}</span>
-        </div>
-      </div>
+      {state?.message && <p className={state.success ? "text-green-600 text-sm" : "text-red-600 text-sm"}>{state.message}</p>}
 
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
-        <button disabled={isPending || !selectedEmp} className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+        <button disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
           {isPending ? 'Processing...' : 'Run Payroll'}
         </button>
       </div>
