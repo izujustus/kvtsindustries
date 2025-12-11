@@ -1,7 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import SearchBar from '@/app/ui/users/search';
-import { Package, AlertTriangle, ArrowRightLeft, Layers } from 'lucide-react';
-// import InventoryClientWrapper from './client-wrapper';
+import { Package, AlertTriangle, Layers } from 'lucide-react';
 import InventoryClientWrapper from './client-wrapper';
 
 const prisma = new PrismaClient();
@@ -9,13 +7,16 @@ const prisma = new PrismaClient();
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams?: { query?: string; tab?: string };
+  // FIX 1: Define searchParams as a Promise
+  searchParams: Promise<{ query?: string; tab?: string }>;
 }) {
-  const query = searchParams?.query || '';
-  const currentTab = searchParams?.tab || 'STOCK'; // STOCK | MOVEMENTS
+  // FIX 2: Await the searchParams
+  const params = await searchParams;
+  const query = params?.query || '';
+  const currentTab = params?.tab || 'STOCK'; // STOCK | MOVEMENTS
 
-  // 1. Fetch Products
-  const products = await prisma.product.findMany({
+  // 1. Fetch Raw Products
+  const rawProducts = await prisma.product.findMany({
     where: {
       OR: [
         { name: { contains: query, mode: 'insensitive' } },
@@ -28,18 +29,35 @@ export default async function InventoryPage({
     }
   });
 
+  // FIX 3: Transform Decimals to Numbers for the Client
+  const products = rawProducts.map(p => ({
+    ...p,
+    costPrice: Number(p.costPrice),
+    sellingPrice: Number(p.sellingPrice),
+  }));
+
   // 2. Fetch Movements (Only if tab is MOVEMENTS)
   let movements: any[] = [];
   if (currentTab === 'MOVEMENTS') {
-    movements = await prisma.inventoryMovement.findMany({
+    const rawMovements = await prisma.inventoryMovement.findMany({
       take: 100,
       orderBy: { date: 'desc' },
       include: { product: true }
     });
+
+    // Transform nested product decimals inside movements
+    movements = rawMovements.map(m => ({
+      ...m,
+      product: {
+        ...m.product,
+        costPrice: Number(m.product.costPrice),
+        sellingPrice: Number(m.product.sellingPrice),
+      }
+    }));
   }
 
-  // 3. Stats Calculation
-  const totalStockValue = products.reduce((acc, p) => acc + (Number(p.costPrice) * p.stockOnHand), 0);
+  // 3. Stats Calculation (Using the transformed numbers)
+  const totalStockValue = products.reduce((acc, p) => acc + (p.costPrice * p.stockOnHand), 0);
   const lowStockCount = products.filter(p => p.stockOnHand <= p.reorderLevel).length;
 
   return (

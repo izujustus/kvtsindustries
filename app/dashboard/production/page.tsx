@@ -1,9 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { Plus, Download, Factory, AlertCircle, CheckCircle } from 'lucide-react';
-import SearchBar from '@/app/ui/users/search'; // Reuse search
-import { Modal } from '@/app/ui/users/user-form'; // Reuse modal
-import { ProductionForm } from '@/app/ui/production/production-form';
-// import ProductionClientWrapper from './client-wrapper'; // We will build this
+import { Factory, AlertCircle, CheckCircle, Download } from 'lucide-react'; // Added missing imports
+import SearchBar from '@/app/ui/users/search';
 import ProductionClientWrapper from './client-wrapper';
 
 const prisma = new PrismaClient();
@@ -11,14 +8,17 @@ const prisma = new PrismaClient();
 export default async function ProductionPage({
   searchParams,
 }: {
-  searchParams?: { query?: string; page?: string };
+  // FIX 1: Type definition must be a Promise
+  searchParams: Promise<{ query?: string; page?: string }>;
 }) {
-  const query = searchParams?.query || '';
+  // FIX 2: Await the params before using them
+  const params = await searchParams;
+  const query = params?.query || '';
   
   // 1. Fetch Products (For Dropdown)
   const products = await prisma.product.findMany({
     select: { id: true, name: true, code: true, brand: true },
-    where: { type: 'FINISHED_GOOD' } // Only show finished tires
+    where: { type: 'FINISHED_GOOD' }
   });
 
   // 2. Fetch Reports (With Filtering)
@@ -31,13 +31,13 @@ export default async function ProductionPage({
     },
     include: {
       product: true,
-      defects: true, // Include defects to show in table
+      defects: true,
     },
     orderBy: { date: 'desc' },
-    take: 50 // Limit for performance, add pagination later
+    take: 50
   });
 
-  // 3. Calculate Stats (Live Dashboard)
+  // 3. Calculate Stats
   const totalProduced = reports.reduce((sum, r) => sum + r.totalQty, 0);
   const totalRejected = reports.reduce((sum, r) => sum + r.rejectedQty, 0);
   const defectRate = totalProduced > 0 ? ((totalRejected / totalProduced) * 100).toFixed(1) : '0';
@@ -83,7 +83,7 @@ export default async function ProductionPage({
         <div className="w-full max-w-md"><SearchBar /></div>
       </div>
 
-      {/* CLIENT WRAPPER (Table + Modal) */}
+      {/* CLIENT WRAPPER */}
       <ProductionClientWrapper reports={reports} products={products} />
     </div>
   );
