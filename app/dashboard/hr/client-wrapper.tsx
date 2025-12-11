@@ -2,9 +2,43 @@
 
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Plus, UserPlus, FileText, MoreHorizontal, Search, Filter, User, Calendar, DollarSign, Briefcase } from 'lucide-react';
+import { Plus, UserPlus, FileText, MoreHorizontal, Search, Filter, User, Calendar, DollarSign, Briefcase, Clock } from 'lucide-react';
 import { Modal } from '@/app/ui/users/user-form';
 import { EmployeeForm, PayrollForm, EmployeeStatusForm } from '@/app/ui/hr/hr-forms';
+
+// --- HELPER: CALCULATE DURATION ---
+function calculateTenure(hireDate: string | Date) {
+  const start = new Date(hireDate);
+  const now = new Date();
+  
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  let days = now.getDate() - start.getDate();
+
+  // Adjust for negative days/months
+  if (days < 0) {
+    months--;
+    // Get days in previous month
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  // Format the output
+  const parts = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'year' : 'years'}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'month' : 'months'}`);
+  
+  // If less than a month, show days
+  if (years === 0 && months === 0) {
+    return `${days} ${days === 1 ? 'day' : 'days'}`;
+  }
+
+  return parts.join(', ');
+}
 
 export default function HRClientWrapper({ employees, payrolls, departments }: any) {
   const [tab, setTab] = useState('EMPLOYEES');
@@ -27,7 +61,7 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
 
   // 2. HELPER TO OPEN MODALS
   const openStatusModal = (employee: any, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent opening the view modal
+    e.stopPropagation(); 
     setSelectedEmployee(employee);
     setModal('STATUS');
   };
@@ -37,7 +71,7 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
     setModal('VIEW');
   };
 
-  // 3. GET PAYROLL HISTORY FOR SELECTED EMPLOYEE
+  // 3. GET PAYROLL HISTORY
   const employeePayrolls = selectedEmployee 
     ? payrolls.filter((p: any) => p.employeeId === selectedEmployee.id)
     : [];
@@ -60,7 +94,7 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
         </div>
       </div>
 
-      {/* FILTERS TOOLBAR (Only for Employees Tab) */}
+      {/* FILTERS TOOLBAR */}
       {tab === 'EMPLOYEES' && (
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
           <div className="relative flex-1">
@@ -161,7 +195,7 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
           </div>
         )}
 
-        {/* TAB 2: PAYROLL TABLE (Unchanged) */}
+        {/* TAB 2: PAYROLL TABLE */}
         {tab === 'PAYROLL' && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -194,25 +228,21 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
       </div>
 
       {/* --- MODALS --- */}
-
-      {/* 1. HIRE FORM */}
       <Modal isOpen={modal === 'EMPLOYEE'} onClose={() => setModal(null)} title="Hire New Employee">
         <EmployeeForm onClose={() => setModal(null)} departments={departments} />
       </Modal>
       
-      {/* 2. PAYROLL FORM */}
       <Modal isOpen={modal === 'PAYROLL'} onClose={() => setModal(null)} title="Process Payroll">
         <PayrollForm employees={employees} onClose={() => setModal(null)} />
       </Modal>
 
-      {/* 3. STATUS MANAGER */}
       <Modal isOpen={modal === 'STATUS'} onClose={() => setModal(null)} title="Manage Employee Status">
         {selectedEmployee && (
           <EmployeeStatusForm employee={selectedEmployee} onClose={() => setModal(null)} />
         )}
       </Modal>
 
-      {/* 4. FULL PROFILE VIEW (TRACK EVERYTHING) */}
+      {/* 4. FULL PROFILE VIEW (UPDATED WITH TENURE) */}
       <Modal isOpen={modal === 'VIEW'} onClose={() => setModal(null)} title="Employee Profile">
         {selectedEmployee && (
           <div className="space-y-6">
@@ -226,11 +256,19 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">{selectedEmployee.firstName} {selectedEmployee.lastName}</h3>
                   <p className="text-sm text-gray-500 font-mono">{selectedEmployee.employeeNumber}</p>
-                  <div className="flex gap-2 mt-2">
+                  
+                  {/* TENURE BADGE */}
+                  <div className="mt-2 flex flex-wrap gap-2">
                     <span className={clsx(
                       "text-[10px] font-bold uppercase px-2 py-0.5 rounded-full",
                       selectedEmployee.status === 'ACTIVE' ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
-                    )}>{selectedEmployee.status}</span>
+                    )}>
+                      {selectedEmployee.status}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {calculateTenure(selectedEmployee.hireDate)}
+                    </span>
                   </div>
                 </div>
               </div>
