@@ -178,12 +178,15 @@ model Employee {
   phone          String?
   address        String?  @db.Text
   dateOfBirth     DateTime?
+
+  // Change String to EmployeeStatus
+  
   
   // Job Details
   
   position       String
   hireDate       DateTime
-  status         String   @default("ACTIVE") // ACTIVE, TERMINATED, ON_LEAVE
+ status      EmployeeStatus @default(ACTIVE)
   
   // Compensation
   basicSalary    Decimal  @db.Decimal(18, 2)
@@ -746,4 +749,12 @@ model SubDepartment {
 
   @@unique([name, departmentId]) // Prevent duplicate names inside the same department
   @@map("sub_departments")
+}
+
+// 1. DEFINE THE STATUSES
+enum EmployeeStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+  ON_LEAVE
 }

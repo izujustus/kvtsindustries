@@ -159,3 +159,27 @@ export async function createPayroll(prevState: any, formData: FormData) {
   revalidatePath('/dashboard/hr');
   return { message: 'Payroll Processed Successfully', success: true };
 }
+
+// ... existing imports and code
+
+// 3. UPDATE EMPLOYEE STATUS (Fire, Suspend, etc.)
+export async function updateEmployeeStatus(prevState: any, formData: FormData) {
+  const employeeId = formData.get('employeeId') as string;
+  const newStatus = formData.get('status') as string;
+
+  if (!employeeId || !newStatus) return { message: 'Missing fields' };
+
+  try {
+    await prisma.employee.update({
+      where: { id: employeeId },
+      data: { 
+        status: newStatus as any // Cast string to Enum
+      }
+    });
+  } catch (e) {
+    return { message: 'Failed to update status' };
+  }
+
+  revalidatePath('/dashboard/hr');
+  return { message: 'Employee Status Updated', success: true };
+}
