@@ -24,7 +24,8 @@ export function ProfileForm({ user }: { user: any }) {
 
       <div>
         <label className="block text-sm font-medium text-gray-700">Email Address</label>
-        <input name="email" type="email" defaultValue={user.email} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-[#E30613] focus:border-[#E30613] sm:text-sm p-2 border" />
+        <input name="email" type="email" defaultValue={user.email} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm readOnly
+ focus:ring-[#E30613] focus:border-[#E30613] sm:text-sm p-2 border" />
       </div>
 
       <div>
