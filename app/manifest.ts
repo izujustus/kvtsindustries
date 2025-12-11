@@ -14,13 +14,13 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/logo.png',
         sizes: '192x192',
         type: 'image/png',
-        purpose: 'any', // Used for standard icons
+        purpose: 'any', // Safer setting
       },
       {
         src: '/logo.png',
         sizes: '512x512',
         type: 'image/png',
-        // purpose: 'any maskable', // Used for Android adaptive icons
+        purpose: 'any', // Safer setting
       },
     ],
   };
