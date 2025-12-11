@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Plus, UserPlus, FileText, MoreHorizontal, Search, Filter, User, Calendar, DollarSign, Briefcase, Clock, History, ArrowRight } from 'lucide-react';
+import { Plus, UserPlus, FileText, MoreHorizontal, Search, Filter, User, Calendar, DollarSign, Briefcase, Clock, History, ArrowRight, CreditCard } from 'lucide-react';
 import { Modal } from '@/app/ui/users/user-form';
 import { EmployeeForm, PayrollForm, EmployeeStatusForm } from '@/app/ui/hr/hr-forms';
 
@@ -26,7 +26,7 @@ function calculateDetailedTenure(hireDate: string | Date) {
   return parts.join(', ');
 }
 
-// --- HELPER 2: COMPACT TABLE TENURE (For the Column) ---
+// --- HELPER 2: COMPACT TABLE TENURE (For Main Table) ---
 function getTableTenure(hireDate: string | Date) {
   const start = new Date(hireDate);
   const now = new Date();
@@ -35,11 +35,10 @@ function getTableTenure(hireDate: string | Date) {
   let months = now.getMonth() - start.getMonth();
   let days = now.getDate() - start.getDate();
 
-  // Adjust calc
-  if (days < 0) { months--; days += 30; } // approx
+  if (days < 0) { months--; days += 30; } 
   if (months < 0) { years--; months += 12; }
 
-  const isLoyal = years >= 1; // Green condition
+  const isLoyal = years >= 1; 
   let label = '';
 
   if (years > 0) {
@@ -131,7 +130,7 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
       {/* MAIN CONTENT CARD */}
       <div className="bg-white rounded-xl border shadow-sm mt-4 flex flex-col h-[600px]">
         
-        {/* TAB 1: EMPLOYEES TABLE (SCROLLABLE WITH STICKY HEADER) */}
+        {/* TAB 1: EMPLOYEES TABLE */}
         {tab === 'EMPLOYEES' && (
           <div className="overflow-auto flex-1 rounded-xl">
             <table className="min-w-full divide-y divide-gray-200 relative">
@@ -157,24 +156,15 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
                           <div className="text-sm font-bold text-gray-900 group-hover:text-[#E30613] transition-colors">{e.firstName} {e.lastName}</div>
                           <div className="text-xs text-gray-500">{e.email || e.phone}</div>
                         </td>
-                        
-                        {/* ROLE COLUMN: Bold Green if > 1 Year */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className={clsx("text-sm transition-colors", tenure.isLoyal ? "text-green-700 font-bold" : "text-gray-900")}>{e.position}</div>
                           <div className="text-xs text-gray-500 flex items-center gap-1">{e.department} {e.subDepartment ? `› ${e.subDepartment}` : ''}</div>
                         </td>
-
-                        {/* DURATION COLUMN */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border shadow-sm", 
-                            tenure.isLoyal 
-                              ? "bg-green-50 text-green-700 border-green-200" 
-                              : "bg-gray-50 text-gray-600 border-gray-200"
-                          )}>
+                          <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border shadow-sm", tenure.isLoyal ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-600 border-gray-200")}>
                             <Clock className="w-3 h-3" /> {tenure.label}
                           </span>
                         </td>
-
                         <td className="px-6 py-4 text-right text-sm font-mono font-medium whitespace-nowrap">₦{e.basicSalary.toLocaleString()}</td>
                         <td className="px-6 py-4 text-center whitespace-nowrap">
                           <span className={clsx("text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-bold", e.status === 'ACTIVE' ? "bg-green-100 text-green-700" : e.status === 'SUSPENDED' ? "bg-orange-100 text-orange-700" : e.status === 'TERMINATED' ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700")}>{e.status}</span>
@@ -212,15 +202,16 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
         )}
       </div>
 
-      {/* --- MODALS (Unchanged) --- */}
+      {/* --- MODALS --- */}
       <Modal isOpen={modal === 'EMPLOYEE'} onClose={() => setModal(null)} title="Hire New Employee"><EmployeeForm onClose={() => setModal(null)} departments={departments} /></Modal>
       <Modal isOpen={modal === 'PAYROLL'} onClose={() => setModal(null)} title="Process Payroll"><PayrollForm employees={employees} onClose={() => setModal(null)} /></Modal>
       <Modal isOpen={modal === 'STATUS'} onClose={() => setModal(null)} title="Manage Employee Status">{selectedEmployee && <EmployeeStatusForm employee={selectedEmployee} onClose={() => setModal(null)} />}</Modal>
 
-      {/* PROFILE MODAL */}
+      {/* PROFILE MODAL: CAREER HISTORY + PAYROLL HISTORY */}
       <Modal isOpen={modal === 'VIEW'} onClose={() => setModal(null)} title="Employee Profile">
         {selectedEmployee && (
           <div className="space-y-6">
+            {/* Header */}
             <div className="flex items-start justify-between bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="flex gap-4">
                 <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-2xl font-bold text-gray-500">{selectedEmployee.firstName.charAt(0)}{selectedEmployee.lastName.charAt(0)}</div>
@@ -235,11 +226,16 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
               </div>
               <button onClick={() => setModal('STATUS')} className="text-xs font-bold text-[#E30613] hover:underline">Change Status</button>
             </div>
-            {/* ... Grids & History ... */}
-            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm border-b border-gray-100 pb-4">
                <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Position</label><p>{selectedEmployee.position}</p></div>
                <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Department</label><p>{selectedEmployee.department}</p></div>
+               <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Contact</label><p className="flex items-center gap-2"><User className="w-3 h-3"/> {selectedEmployee.phone}</p></div>
+               <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Hired</label><p className="flex items-center gap-2"><Calendar className="w-3 h-3"/> {new Date(selectedEmployee.hireDate).toLocaleDateString()}</p></div>
             </div>
+
+            {/* SECTION 1: CAREER HISTORY */}
             <div>
               <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><History className="w-4 h-4 text-gray-400" /> Career History</h4>
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 max-h-40 overflow-y-auto custom-scrollbar">
@@ -259,6 +255,20 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
                 )}
               </div>
             </div>
+
+            {/* SECTION 2: PAYMENT HISTORY (RESTORED) */}
+            <div>
+              <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><CreditCard className="w-4 h-4 text-gray-400" /> Recent Payments</h4>
+              {employeePayrolls.length > 0 ? (
+                <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-100"><tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-right">Net Pay</th></tr></thead>
+                    <tbody>{employeePayrolls.slice(0, 5).map((p: any) => (<tr key={p.id} className="border-t border-gray-200"><td className="px-3 py-2 text-gray-600">{new Date(p.paymentDate).toLocaleDateString()}</td><td className="px-3 py-2 text-right font-bold text-gray-900">₦{p.netPay.toLocaleString()}</td></tr>))}</tbody>
+                  </table>
+                </div>
+              ) : (<p className="text-xs text-gray-400 italic">No payment history found.</p>)}
+            </div>
+
             <div className="flex justify-end pt-2"><button onClick={() => setModal(null)} className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium">Close Profile</button></div>
           </div>
         )}
