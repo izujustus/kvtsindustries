@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { EmployeeStatus } from '@prisma/client'; 
 
 const prisma = new PrismaClient();
 
@@ -163,23 +164,50 @@ export async function createPayroll(prevState: any, formData: FormData) {
 // ... existing imports and code
 
 // 3. UPDATE EMPLOYEE STATUS (Fire, Suspend, etc.)
+
+
+// ... imports including EmployeeStatus
+
+
+// 3. UPDATE EMPLOYEE STATUS (With History Logging)
 export async function updateEmployeeStatus(prevState: any, formData: FormData) {
   const employeeId = formData.get('employeeId') as string;
-  const newStatus = formData.get('status') as string;
+  const newStatus = formData.get('status') as EmployeeStatus; // Ensure type safety
 
   if (!employeeId || !newStatus) return { message: 'Missing fields' };
 
   try {
-    await prisma.employee.update({
-      where: { id: employeeId },
-      data: { 
-        status: newStatus as any // Cast string to Enum
-      }
+    // 1. Fetch current employee to get the OLD status
+    const currentEmployee = await prisma.employee.findUnique({
+      where: { id: employeeId }
     });
+
+    if (!currentEmployee) return { message: 'Employee not found' };
+    
+    // If status hasn't changed, do nothing
+    if (currentEmployee.status === newStatus) {
+      return { message: 'Status is already set to ' + newStatus };
+    }
+
+    // 2. Perform Transaction: Update Employee AND Create Log
+    await prisma.$transaction([
+      prisma.employee.update({
+        where: { id: employeeId },
+        data: { status: newStatus }
+      }),
+      prisma.employeeStatusLog.create({
+        data: {
+          employeeId,
+          oldStatus: currentEmployee.status,
+          newStatus: newStatus
+        }
+      })
+    ]);
+
   } catch (e) {
     return { message: 'Failed to update status' };
   }
 
   revalidatePath('/dashboard/hr');
-  return { message: 'Employee Status Updated', success: true };
+  return { message: 'Status Updated & Logged', success: true };
 }

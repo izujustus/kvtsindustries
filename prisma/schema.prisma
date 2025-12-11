@@ -178,6 +178,7 @@ model Employee {
   phone          String?
   address        String?  @db.Text
   dateOfBirth     DateTime?
+  statusLogs EmployeeStatusLog[]
 
   // Change String to EmployeeStatus
   
@@ -757,4 +758,16 @@ enum EmployeeStatus {
   SUSPENDED
   TERMINATED
   ON_LEAVE
+}
+model EmployeeStatusLog {
+  id          String         @id @default(cuid())
+  employeeId  String
+  employee    Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  oldStatus   EmployeeStatus
+  newStatus   EmployeeStatus
+  
+  changedAt   DateTime       @default(now())
+
+  @@map("employee_status_logs")
 }

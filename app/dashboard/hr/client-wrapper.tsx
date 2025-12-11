@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Plus, UserPlus, FileText, MoreHorizontal, Search, Filter, User, Calendar, DollarSign, Briefcase, Clock } from 'lucide-react';
+import { Plus, UserPlus, FileText, MoreHorizontal, Search, Filter, User, Calendar, DollarSign, Briefcase, Clock, History, ArrowRight } from 'lucide-react';
 import { Modal } from '@/app/ui/users/user-form';
 import { EmployeeForm, PayrollForm, EmployeeStatusForm } from '@/app/ui/hr/hr-forms';
 
@@ -15,15 +15,8 @@ function calculateDetailedTenure(hireDate: string | Date) {
   let months = now.getMonth() - start.getMonth();
   let days = now.getDate() - start.getDate();
 
-  if (days < 0) {
-    months--;
-    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-    days += prevMonth.getDate();
-  }
-  if (months < 0) {
-    years--;
-    months += 12;
-  }
+  if (days < 0) { months--; const prev = new Date(now.getFullYear(), now.getMonth(), 0); days += prev.getDate(); }
+  if (months < 0) { years--; months += 12; }
 
   const parts = [];
   if (years > 0) parts.push(`${years} ${years === 1 ? 'year' : 'years'}`);
@@ -33,18 +26,46 @@ function calculateDetailedTenure(hireDate: string | Date) {
   return parts.join(', ');
 }
 
-// --- HELPER 2: SIMPLE TENURE (For Table Column) ---
+// --- HELPER 2: COMPACT TABLE TENURE (For the Column) ---
 function getTableTenure(hireDate: string | Date) {
   const start = new Date(hireDate);
   const now = new Date();
-  const diffTime = Math.abs(now.getTime() - start.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-  const years = Math.floor(diffDays / 365);
-  const months = Math.floor((diffDays % 365) / 30);
+  
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  let days = now.getDate() - start.getDate();
 
-  if (years > 0) return { label: `${years} ${years === 1 ? 'Year' : 'Years'}`, isLoyal: true };
-  if (months > 0) return { label: `${months} ${months === 1 ? 'Month' : 'Months'}`, isLoyal: false };
-  return { label: `${diffDays} Days`, isLoyal: false };
+  // Adjust calc
+  if (days < 0) { months--; days += 30; } // approx
+  if (months < 0) { years--; months += 12; }
+
+  const isLoyal = years >= 1; // Green condition
+  let label = '';
+
+  if (years > 0) {
+    label = `${years} Yr${years > 1 ? 's' : ''}`;
+    if (months > 0) label += ` ${months} Mo${months > 1 ? 's' : ''}`;
+  } else if (months > 0) {
+    label = `${months} Mo${months > 1 ? 's' : ''}`;
+  } else {
+    label = `${days} Day${days !== 1 ? 's' : ''}`;
+  }
+
+  return { label, isLoyal };
+}
+
+// --- HELPER 3: HISTORY LOG MESSAGES ---
+function getHistoryMessage(log: any) {
+  const date = new Date(log.changedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  if (log.newStatus === 'TERMINATED') return { icon: '🔴', text: `Employment was terminated on ${date}.`, color: 'text-red-600' };
+  if (log.newStatus === 'SUSPENDED') return { icon: '🟠', text: `Placed on suspension effective ${date}.`, color: 'text-orange-600' };
+  if (log.newStatus === 'ON_LEAVE') return { icon: '🔵', text: `Started leave period on ${date}.`, color: 'text-blue-600' };
+  if (log.newStatus === 'ACTIVE') {
+    if (log.oldStatus === 'ON_LEAVE') return { icon: '🟢', text: `Resumed duties from leave on ${date}.`, color: 'text-green-700' };
+    if (log.oldStatus === 'SUSPENDED') return { icon: '🟢', text: `Reinstated from suspension on ${date}.`, color: 'text-green-700' };
+    return { icon: '🟢', text: `Account activated on ${date}.`, color: 'text-green-700' };
+  }
+  return { icon: '⚪', text: `Status updated to ${log.newStatus} on ${date}.`, color: 'text-gray-600' };
 }
 
 export default function HRClientWrapper({ employees, payrolls, departments }: any) {
@@ -64,20 +85,14 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
     return matchesStatus && matchesSearch;
   });
 
-  // MODAL HANDLERS
   const openStatusModal = (employee: any, e: React.MouseEvent) => {
-    e.stopPropagation(); 
-    setSelectedEmployee(employee);
-    setModal('STATUS');
+    e.stopPropagation(); setSelectedEmployee(employee); setModal('STATUS');
   };
   const openViewModal = (employee: any) => {
-    setSelectedEmployee(employee);
-    setModal('VIEW');
+    setSelectedEmployee(employee); setModal('VIEW');
   };
 
-  const employeePayrolls = selectedEmployee 
-    ? payrolls.filter((p: any) => p.employeeId === selectedEmployee.id)
-    : [];
+  const employeePayrolls = selectedEmployee ? payrolls.filter((p: any) => p.employeeId === selectedEmployee.id) : [];
 
   return (
     <>
@@ -98,20 +113,11 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              placeholder="Search by name or ID..." 
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <input placeholder="Search by name or ID..." className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E30613]/20 focus:border-[#E30613]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-400" />
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-sm border border-gray-200 rounded-lg py-2 pl-2 pr-8 focus:outline-none focus:border-[#E30613] bg-white"
-            >
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg py-2 pl-2 pr-8 focus:outline-none focus:border-[#E30613] bg-white">
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">Active Only</option>
               <option value="SUSPENDED">Suspended</option>
@@ -123,93 +129,58 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
       )}
 
       {/* MAIN CONTENT CARD */}
-      <div className="bg-white rounded-xl border shadow-sm mt-4 min-h-[400px] flex flex-col">
+      <div className="bg-white rounded-xl border shadow-sm mt-4 flex flex-col h-[600px]">
         
-        {/* TAB 1: EMPLOYEES TABLE */}
+        {/* TAB 1: EMPLOYEES TABLE (SCROLLABLE WITH STICKY HEADER) */}
         {tab === 'EMPLOYEES' && (
-          // 'overflow-auto' and 'max-h' make the table body scrollable if needed
-          <div className="overflow-x-auto w-full">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-auto flex-1 rounded-xl">
+            <table className="min-w-full divide-y divide-gray-200 relative">
+              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Duration</th> {/* NEW COL */}
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Salary</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Action</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap bg-gray-50">ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap bg-gray-50">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap bg-gray-50">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap bg-gray-50">Duration</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 whitespace-nowrap bg-gray-50">Salary</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500 whitespace-nowrap bg-gray-50">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 whitespace-nowrap bg-gray-50">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredEmployees.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm">
-                      No employees found matching your filters.
-                    </td>
-                  </tr>
-                ) : (
+                {filteredEmployees.length === 0 ? (<tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm">No employees found.</td></tr>) : (
                   filteredEmployees.map((e: any) => {
                     const tenure = getTableTenure(e.hireDate);
-                    
                     return (
-                      <tr 
-                        key={e.id} 
-                        onClick={() => openViewModal(e)} 
-                        className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
-                      >
+                      <tr key={e.id} onClick={() => openViewModal(e)} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                         <td className="px-6 py-4 text-xs font-mono text-gray-500 whitespace-nowrap">{e.employeeNumber}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-bold text-gray-900 group-hover:text-[#E30613] transition-colors">{e.firstName} {e.lastName}</div>
                           <div className="text-xs text-gray-500">{e.email || e.phone}</div>
                         </td>
                         
-                        {/* ROLE COLUMN - Green if Loyal (>1yr) */}
+                        {/* ROLE COLUMN: Bold Green if > 1 Year */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={clsx(
-                            "text-sm", 
-                            tenure.isLoyal ? "text-green-700 font-bold" : "text-gray-900"
-                          )}>
-                            {e.position}
-                          </div>
-                          <div className="text-xs text-gray-500 flex items-center gap-1">
-                            {e.department} {e.subDepartment ? `› ${e.subDepartment}` : ''}
-                          </div>
+                          <div className={clsx("text-sm transition-colors", tenure.isLoyal ? "text-green-700 font-bold" : "text-gray-900")}>{e.position}</div>
+                          <div className="text-xs text-gray-500 flex items-center gap-1">{e.department} {e.subDepartment ? `› ${e.subDepartment}` : ''}</div>
                         </td>
 
                         {/* DURATION COLUMN */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={clsx(
-                            "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
-                            tenure.isLoyal ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-100 text-gray-600"
+                          <span className={clsx("inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border shadow-sm", 
+                            tenure.isLoyal 
+                              ? "bg-green-50 text-green-700 border-green-200" 
+                              : "bg-gray-50 text-gray-600 border-gray-200"
                           )}>
-                            <Clock className="w-3 h-3" />
-                            {tenure.label}
+                            <Clock className="w-3 h-3" /> {tenure.label}
                           </span>
                         </td>
 
                         <td className="px-6 py-4 text-right text-sm font-mono font-medium whitespace-nowrap">₦{e.basicSalary.toLocaleString()}</td>
-                        
                         <td className="px-6 py-4 text-center whitespace-nowrap">
-                          <span className={clsx(
-                            "text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-bold",
-                            e.status === 'ACTIVE' ? "bg-green-100 text-green-700" :
-                            e.status === 'SUSPENDED' ? "bg-orange-100 text-orange-700" :
-                            e.status === 'TERMINATED' ? "bg-red-100 text-red-700" :
-                            "bg-gray-100 text-gray-700"
-                          )}>
-                            {e.status}
-                          </span>
+                          <span className={clsx("text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-bold", e.status === 'ACTIVE' ? "bg-green-100 text-green-700" : e.status === 'SUSPENDED' ? "bg-orange-100 text-orange-700" : e.status === 'TERMINATED' ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700")}>{e.status}</span>
                         </td>
-                        
                         <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <button 
-                            onClick={(evt) => openStatusModal(e, evt)}
-                            className="text-gray-400 hover:text-gray-900 hover:bg-gray-200 p-2 rounded-full transition-all"
-                            title="Manage Status"
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
+                          <button onClick={(evt) => openStatusModal(e, evt)} className="text-gray-400 hover:text-gray-900 hover:bg-gray-200 p-2 rounded-full transition-all"><MoreHorizontal className="w-4 h-4" /></button>
                         </td>
                       </tr>
                     );
@@ -222,27 +193,16 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
 
         {/* TAB 2: PAYROLL TABLE */}
         {tab === 'PAYROLL' && (
-          <div className="overflow-x-auto w-full">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Employee</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Basic</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Add/Ded</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 whitespace-nowrap">Net Pay</th>
-                </tr>
+          <div className="overflow-auto flex-1 rounded-xl">
+            <table className="min-w-full divide-y divide-gray-200 relative">
+              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                <tr><th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 bg-gray-50">Date</th><th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 bg-gray-50">Employee</th><th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 bg-gray-50">Net Pay</th></tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {payrolls.map((p: any) => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{new Date(p.paymentDate).toLocaleDateString()}</td>
                     <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">{p.employee.firstName} {p.employee.lastName}</td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-500 whitespace-nowrap">₦{p.basicSalary.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-xs whitespace-nowrap">
-                      <span className="text-green-600 block">+{p.totalAllowances.toLocaleString()}</span>
-                      <span className="text-red-600 block">-{p.totalDeductions.toLocaleString()}</span>
-                    </td>
                     <td className="px-6 py-4 text-right text-sm font-black text-gray-900 whitespace-nowrap">₦{p.netPay.toLocaleString()}</td>
                   </tr>
                 ))}
@@ -252,70 +212,54 @@ export default function HRClientWrapper({ employees, payrolls, departments }: an
         )}
       </div>
 
-      {/* --- MODALS --- */}
-      <Modal isOpen={modal === 'EMPLOYEE'} onClose={() => setModal(null)} title="Hire New Employee">
-        <EmployeeForm onClose={() => setModal(null)} departments={departments} />
-      </Modal>
-      
-      <Modal isOpen={modal === 'PAYROLL'} onClose={() => setModal(null)} title="Process Payroll">
-        <PayrollForm employees={employees} onClose={() => setModal(null)} />
-      </Modal>
+      {/* --- MODALS (Unchanged) --- */}
+      <Modal isOpen={modal === 'EMPLOYEE'} onClose={() => setModal(null)} title="Hire New Employee"><EmployeeForm onClose={() => setModal(null)} departments={departments} /></Modal>
+      <Modal isOpen={modal === 'PAYROLL'} onClose={() => setModal(null)} title="Process Payroll"><PayrollForm employees={employees} onClose={() => setModal(null)} /></Modal>
+      <Modal isOpen={modal === 'STATUS'} onClose={() => setModal(null)} title="Manage Employee Status">{selectedEmployee && <EmployeeStatusForm employee={selectedEmployee} onClose={() => setModal(null)} />}</Modal>
 
-      <Modal isOpen={modal === 'STATUS'} onClose={() => setModal(null)} title="Manage Employee Status">
-        {selectedEmployee && (
-          <EmployeeStatusForm employee={selectedEmployee} onClose={() => setModal(null)} />
-        )}
-      </Modal>
-
+      {/* PROFILE MODAL */}
       <Modal isOpen={modal === 'VIEW'} onClose={() => setModal(null)} title="Employee Profile">
         {selectedEmployee && (
           <div className="space-y-6">
             <div className="flex items-start justify-between bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="flex gap-4">
-                <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-2xl font-bold text-gray-500">
-                  {selectedEmployee.firstName.charAt(0)}{selectedEmployee.lastName.charAt(0)}
-                </div>
+                <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-2xl font-bold text-gray-500">{selectedEmployee.firstName.charAt(0)}{selectedEmployee.lastName.charAt(0)}</div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">{selectedEmployee.firstName} {selectedEmployee.lastName}</h3>
                   <p className="text-sm text-gray-500 font-mono">{selectedEmployee.employeeNumber}</p>
-                  
-                  {/* Detailed Tenure in Modal */}
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className={clsx("text-[10px] font-bold uppercase px-2 py-0.5 rounded-full",
-                      selectedEmployee.status === 'ACTIVE' ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
-                    )}>{selectedEmployee.status}</span>
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {calculateDetailedTenure(selectedEmployee.hireDate)}
-                    </span>
+                    <span className={clsx("text-[10px] font-bold uppercase px-2 py-0.5 rounded-full", selectedEmployee.status === 'ACTIVE' ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700")}>{selectedEmployee.status}</span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1"><Clock className="w-3 h-3" /> {calculateDetailedTenure(selectedEmployee.hireDate)}</span>
                   </div>
                 </div>
               </div>
               <button onClick={() => setModal('STATUS')} className="text-xs font-bold text-[#E30613] hover:underline">Change Status</button>
             </div>
-
-            {/* Same Details Grid as before */}
+            {/* ... Grids & History ... */}
             <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
-              <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Contact</label><div className="flex flex-col gap-1"><span className="flex items-center gap-2"><User className="w-3 h-3 text-gray-400"/> {selectedEmployee.email || 'No Email'}</span><span className="flex items-center gap-2"><User className="w-3 h-3 text-gray-400"/> {selectedEmployee.phone || 'No Phone'}</span></div></div>
-              <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Employment</label><div className="flex flex-col gap-1"><span className="flex items-center gap-2"><Briefcase className="w-3 h-3 text-gray-400"/> {selectedEmployee.position}</span><span className="flex items-center gap-2"><Briefcase className="w-3 h-3 text-gray-400"/> {selectedEmployee.department}</span></div></div>
-              <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Financial</label><div className="flex flex-col gap-1"><span className="flex items-center gap-2 font-bold text-gray-800"><DollarSign className="w-3 h-3 text-gray-400"/> ₦{selectedEmployee.basicSalary.toLocaleString()}/mo</span></div></div>
-              <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Timeline</label><div className="flex flex-col gap-1"><span className="flex items-center gap-2"><Calendar className="w-3 h-3 text-gray-400"/> Hired: {new Date(selectedEmployee.hireDate).toLocaleDateString()}</span></div></div>
+               <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Position</label><p>{selectedEmployee.position}</p></div>
+               <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Department</label><p>{selectedEmployee.department}</p></div>
             </div>
-
-            <div className="border-t border-gray-100 pt-4">
-              <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Recent Payments</h4>
-              {employeePayrolls.length > 0 ? (
-                <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
-                  <table className="min-w-full text-xs">
-                    <thead className="bg-gray-100"><tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-right">Net Pay</th></tr></thead>
-                    <tbody>{employeePayrolls.slice(0, 5).map((p: any) => (<tr key={p.id} className="border-t border-gray-200"><td className="px-3 py-2 text-gray-600">{new Date(p.paymentDate).toLocaleDateString()}</td><td className="px-3 py-2 text-right font-bold text-gray-900">₦{p.netPay.toLocaleString()}</td></tr>))}</tbody>
-                  </table>
-                </div>
-              ) : (<p className="text-xs text-gray-400 italic">No payment history found.</p>)}
+            <div>
+              <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><History className="w-4 h-4 text-gray-400" /> Career History</h4>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 max-h-40 overflow-y-auto custom-scrollbar">
+                {(!selectedEmployee.statusLogs || selectedEmployee.statusLogs.length === 0) ? <p className="text-xs text-gray-400 italic">No status changes recorded yet.</p> : (
+                  <div className="space-y-4">
+                    {selectedEmployee.statusLogs.map((log: any) => {
+                      const info = getHistoryMessage(log);
+                      return (
+                        <div key={log.id} className="flex gap-3 relative">
+                           <div className="absolute top-4 bottom-[-16px] left-[7px] w-[1px] bg-gray-200 last:hidden"></div>
+                           <div className="text-base">{info.icon}</div>
+                           <div><p className={clsx("text-sm font-medium", info.color)}>{info.text}</p></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-
-            <div className="flex justify-end pt-2">
-               <button onClick={() => setModal(null)} className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium">Close Profile</button>
-            </div>
+            <div className="flex justify-end pt-2"><button onClick={() => setModal(null)} className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium">Close Profile</button></div>
           </div>
         )}
       </Modal>
