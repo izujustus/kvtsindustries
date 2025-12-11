@@ -35,10 +35,20 @@ export default async function SettingsPage() {
     defaultTaxRate: Number(settings.defaultTaxRate)
   };
 
-  // 3. Fetch Announcements (For Admin Management)
-  // We fetch all of them so the Admin can manage/delete them.
+  // 3. Fetch Announcements
   const announcements = await prisma.announcement.findMany({
     orderBy: { createdAt: 'desc' }
+  });
+
+  // 4. FETCH DEPARTMENTS (This was missing)
+  // We need to fetch departments AND their sub-departments to show the hierarchy
+  const departments = await prisma.department.findMany({
+    orderBy: { name: 'asc' },
+    include: {
+      subDepartments: {
+        orderBy: { name: 'asc' }
+      }
+    }
   });
 
   return (
@@ -51,6 +61,7 @@ export default async function SettingsPage() {
         user={user} 
         settings={safeSettings} 
         announcements={announcements} 
+        departments={departments} // <--- Pass the data here
       />
     </div>
   );
