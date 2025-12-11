@@ -6,7 +6,6 @@ const prisma = new PrismaClient();
 
 export default async function AssetsPage() {
   // 1. Fetch Raw Assets
-  // We use 'raw' because we need to process the Decimal fields
   const rawAssets = await prisma.asset.findMany({
     orderBy: { createdAt: 'desc' },
     include: { 
@@ -14,20 +13,32 @@ export default async function AssetsPage() {
     }
   });
 
-  // 2. TRANSFORM: Convert Prisma Decimals to Numbers
-  // This step fixes the "Plain objects" error
+  // 2. TRANSFORM ASSETS: Convert Decimal to Number
   const assets = rawAssets.map(asset => ({
     ...asset,
-    purchaseCost: Number(asset.purchaseCost), // Converting Decimal -> Number
+    purchaseCost: Number(asset.purchaseCost),
+    // FIX: Handle the nested employee object if it exists
+    assignedTo: asset.assignedTo ? {
+      ...asset.assignedTo,
+      basicSalary: Number(asset.assignedTo.basicSalary)
+    } : null
   }));
 
-  // 3. Fetch Employees (For assignment dropdown)
-  const employees = await prisma.employee.findMany({
+  // 3. Fetch Raw Employees (For assignment dropdown)
+  const rawEmployees = await prisma.employee.findMany({
     orderBy: { firstName: 'asc' }
   });
 
-  // 4. Stats Calculations (Using the transformed 'assets' array)
+  // 4. TRANSFORM EMPLOYEES: Convert Decimal to Number
+  // This was the missing part causing your error
+  const employees = rawEmployees.map(emp => ({
+    ...emp,
+    basicSalary: Number(emp.basicSalary)
+  }));
+
+  // 5. Stats Calculations
   const totalValue = assets.reduce((sum, a) => sum + a.purchaseCost, 0);
+  // Note: Using assignedToId (foreign key) is safer than checking the object
   const assignedCount = assets.filter(a => a.assignedToEmployeeId).length;
   const inRepairCount = assets.filter(a => a.status === 'IN_REPAIR').length;
 

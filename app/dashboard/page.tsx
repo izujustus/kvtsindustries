@@ -1,7 +1,7 @@
 // import { auth } from '@/auth';
 import { auth } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
-import { Calendar, Bell, Gift, Megaphone } from 'lucide-react';
+import { Calendar, Bell, Gift, Megaphone, Cake, Sparkles } from 'lucide-react';
 
 const prisma = new PrismaClient();
 
@@ -10,7 +10,7 @@ export default async function DashboardPage() {
   const userRole = (session?.user as any)?.role || 'USER';
   const userName = session?.user?.name || 'Staff Member';
 
-  // 1. Fetch Announcements (Active ones, latest first)
+  // 1. Fetch Announcements
   const announcements = await prisma.announcement.findMany({
     where: { isActive: true },
     orderBy: { createdAt: 'desc' },
@@ -18,39 +18,49 @@ export default async function DashboardPage() {
     include: { createdBy: true }
   });
 
-  // 2. Fetch Birthdays (Complex date logic handled in JS for simplicity across DBs)
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentDay = today.getDate();
-
-  // Fetch all active employees (optimize this with raw SQL in production for huge datasets)
+  // 2. Fetch Employees & Filter Birthdays (Robust Logic)
   const employees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' },
     select: { id: true, firstName: true, lastName: true, department: true, dateOfBirth: true }
   });
 
-  const upcomingBirthdays = employees.filter(emp => {
-    if (!emp.dateOfBirth) return false;
-    const dob = new Date(emp.dateOfBirth);
-    const dobMonth = dob.getMonth() + 1;
-    const dobDay = dob.getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const nextWeek = new Date(today);
+  nextWeek.setDate(today.getDate() + 7);
 
-    // Check if birthday is today or within next 7 days
-    // Simplified logic: matches month and day range
-    if (dobMonth === currentMonth) {
-      return dobDay >= currentDay && dobDay <= currentDay + 7;
+  // Process birthdays
+  let birthdaysToday: any[] = [];
+  let birthdaysUpcoming: any[] = [];
+
+  employees.forEach(emp => {
+    if (!emp.dateOfBirth) return;
+    
+    const dob = new Date(emp.dateOfBirth);
+    // Calculate birthday for current year using UTC to avoid timezone issues
+    const bDayThisYear = new Date(today.getFullYear(), dob.getUTCMonth(), dob.getUTCDate());
+    
+    // Handle end-of-year wrap-around
+    if (bDayThisYear < today) {
+      bDayThisYear.setFullYear(today.getFullYear() + 1);
     }
-    return false;
-  }).sort((a, b) => {
-     // Sort by day
-     const dayA = new Date(a.dateOfBirth!).getDate();
-     const dayB = new Date(b.dateOfBirth!).getDate();
-     return dayA - dayB;
+
+    const empWithDate = { ...emp, birthdayThisYear: bDayThisYear };
+
+    if (bDayThisYear.getTime() === today.getTime()) {
+      birthdaysToday.push(empWithDate);
+    } else if (bDayThisYear > today && bDayThisYear <= nextWeek) {
+      birthdaysUpcoming.push(empWithDate);
+    }
   });
+
+  // Sort upcoming by date
+  birthdaysUpcoming.sort((a, b) => a.birthdayThisYear.getTime() - b.birthdayThisYear.getTime());
+
 
   // 3. Role-Based Quick Stat
   let quickStat = { label: 'System Status', value: 'Online' };
-  
   if (userRole === 'STORE_KEEPER') {
     const lowStock = await prisma.product.count({ where: { stockOnHand: { lte: 10 } } });
     quickStat = { label: 'Low Stock Alerts', value: lowStock.toString() };
@@ -66,20 +76,22 @@ export default async function DashboardPage() {
     quickStat = { label: 'Production Batches', value: todayProduction.toString() };
   }
 
+  const hasBirthdays = birthdaysToday.length > 0 || birthdaysUpcoming.length > 0;
+
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
       {/* WELCOME BANNER */}
-      <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#E30613] rounded-full blur-[100px] opacity-20 -mr-16 -mt-16"></div>
+      <div className="bg-gradient-to-r from-black to-gray-900 rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#E30613] rounded-full blur-[120px] opacity-20 -mr-20 -mt-20 animate-pulse-slow"></div>
         <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {userName}! 👋</h1>
-          <p className="text-gray-300">
-            Have a productive day at KVTS Industries. Here is your overview for today.
+          <h1 className="text-3xl font-bold mb-3 tracking-tight">Welcome back, {userName}! 👋</h1>
+          <p className="text-gray-300 text-lg">
+            Your daily overview is ready. Here is what's happening at KVTS Industries today.
           </p>
           
-          <div className="mt-6 inline-flex items-center bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 border border-white/20">
-            <span className="text-sm font-medium text-gray-200 mr-2">{quickStat.label}:</span>
-            <span className="text-lg font-bold text-[#E30613]">{quickStat.value}</span>
+          <div className="mt-8 inline-flex items-center bg-white/5 backdrop-blur-lg rounded-xl px-5 py-3 border border-white/10 shadow-sm">
+            <span className="text-sm font-medium text-gray-300 mr-3">{quickStat.label}:</span>
+            <span className="text-xl font-black text-[#E30613]">{quickStat.value}</span>
           </div>
         </div>
       </div>
@@ -87,36 +99,36 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* LEFT COL: ANNOUNCEMENTS */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
               <Megaphone className="w-5 h-5 text-[#E30613]" /> Company Updates
             </h3>
-            {userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' ? (
-               <span className="text-xs bg-black text-white px-2 py-1 rounded">Admin Access</span>
-            ) : null}
+            {(userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') && (
+               <span className="text-[10px] uppercase tracking-wider bg-gray-900 text-white px-2 py-1 rounded font-medium">Admin View</span>
+            )}
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 flex-1 overflow-y-auto max-h-[400px]">
             {announcements.length > 0 ? (
               announcements.map((msg) => (
-                <div key={msg.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div key={msg.id} className="p-6 hover:bg-gray-50 transition-colors group">
                   <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-bold text-gray-800">{msg.title}</h4>
-                    <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleDateString()}</span>
+                    <h4 className="font-bold text-gray-800 group-hover:text-[#E30613] transition-colors">{msg.title}</h4>
+                    <span className="text-xs text-gray-400 whitespace-nowrap ml-2">{new Date(msg.createdAt).toLocaleDateString()}</span>
                   </div>
-                  <p className="text-sm text-gray-600 leading-relaxed">{msg.message}</p>
-                  <div className="mt-3 text-xs font-medium text-gray-400 flex items-center gap-1">
-                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                  <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">{msg.message}</p>
+                  <div className="mt-3 text-xs font-medium text-gray-400 flex items-center gap-1.5">
+                    <div className="w-6 h-6 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500">
                       {msg.createdBy.name?.charAt(0) || 'A'}
                     </div>
-                    Posted by {msg.createdBy.name || 'Admin'}
+                    From {msg.createdBy.name || 'Management'}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-10 text-center text-gray-500">
-                <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                No new announcements.
+              <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center h-full">
+                <Bell className="w-10 h-10 mb-3 opacity-20" />
+                <p>No new announcements at this time.</p>
               </div>
             )}
           </div>
@@ -125,54 +137,90 @@ export default async function DashboardPage() {
         {/* RIGHT COL: BIRTHDAYS & ALERTS */}
         <div className="space-y-6">
           
-          {/* BIRTHDAY CARD */}
+          {/* CELEBRATIONS CARD */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-bold text-purple-900 flex items-center gap-2">
-                <Gift className="w-5 h-5 text-purple-600" /> Celebrations
+            <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-red-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Gift className="w-5 h-5 text-purple-600" /> Celebrations & milestones
               </h3>
-              <span className="text-xs font-medium text-purple-600 bg-white px-2 py-1 rounded-full shadow-sm">This Week</span>
             </div>
+            
             <div className="p-6">
-              {upcomingBirthdays.length > 0 ? (
-                <ul className="space-y-4">
-                  {upcomingBirthdays.map(emp => {
-                    const bDay = new Date(emp.dateOfBirth!);
-                    const isToday = bDay.getDate() === currentDay && (bDay.getMonth() + 1) === currentMonth;
-                    
-                    return (
-                      <li key={emp.id} className="flex items-center gap-4">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${isToday ? 'bg-[#E30613] text-white animate-bounce' : 'bg-gray-100 text-gray-600'}`}>
-                          {emp.firstName.charAt(0)}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-gray-900">
-                            {emp.firstName} {emp.lastName} 
-                            {isToday && <span className="ml-2 text-xs bg-yellow-300 text-yellow-900 px-2 py-0.5 rounded-full">Today! 🎂</span>}
-                          </p>
-                          <p className="text-xs text-gray-500">{emp.department} • {bDay.toLocaleDateString(undefined, {month:'long', day:'numeric'})}</p>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
+              {!hasBirthdays ? (
+                 <div className="text-center py-8">
+                  <Calendar className="w-10 h-10 mx-auto mb-3 text-gray-300 opacity-50" />
+                  <p className="text-sm font-medium text-gray-500">No birthdays coming up in the next 7 days.</p>
+                </div>
               ) : (
-                <div className="text-center py-6">
-                  <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">No birthdays coming up this week.</p>
+                <div className="space-y-6">
+                  
+                  {/* --- TODAY'S SPECIAL BANNER --- */}
+                  {birthdaysToday.length > 0 && (
+                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-5 text-white shadow-lg">
+                      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-soft-light"></div> {/* Optional texture */}
+                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl animate-pulse"></div>
+                      
+                      <div className="relative z-10 flex items-start gap-4">
+                        <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm shadow-inner">
+                           <Cake className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-extrabold flex items-center gap-2">
+                             Happy Birthday! <Sparkles className="w-4 h-4 animate-pulse text-yellow-300" />
+                          </h4>
+                          <p className="font-medium mt-1">
+                            {birthdaysToday.map(e => e.firstName + ' ' + e.lastName).join(', ')}
+                          </p>
+                          <p className="text-sm text-purple-100 mt-2 leading-relaxed">
+                            KVTS Industries wishes you a fantastic day and a prosperous year ahead. Thank you for all that you do!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- UPCOMING LIST --- */}
+                  {birthdaysUpcoming.length > 0 && (
+                    <div>
+                      {birthdaysToday.length > 0 && <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 pl-1">Also Coming Up</h5>}
+                      <ul className="space-y-3">
+                        {birthdaysUpcoming.map(emp => (
+                          <li key={emp.id} className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors bg-white shadow-sm">
+                            <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                              {emp.firstName.charAt(0)}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-900 text-sm">
+                                {emp.firstName} {emp.lastName}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Turns a year older on <span className="font-medium text-purple-700">{emp.birthdayThisYear.toLocaleDateString(undefined, {month:'long', day:'numeric'})}</span>.
+                              </p>
+                            </div>
+                            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                               {emp.department}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-center text-gray-400 mt-4 italic">Don't forget to wish them well when the day comes!</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* QUICK LINKS */}
-          <div className="bg-[#E30613]/5 border border-[#E30613]/20 rounded-xl p-6">
-            <h4 className="font-bold text-[#E30613] mb-2">Need Help?</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              If you encounter any system issues or need to update your profile details (excluding email), please visit the Settings page.
+          {/* HELPER CARD */}
+          <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <Settings className="w-4 h-4 text-gray-500" /> Quick Actions
+            </h4>
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+              Need to update your password or personal details? Visit your settings profile to manage your account security.
             </p>
-            <a href="/dashboard/settings" className="text-sm font-bold text-black underline decoration-[#E30613] decoration-2 underline-offset-4 hover:text-[#E30613]">
-              Go to Settings &rarr;
+            <a href="/dashboard/settings" className="inline-flex items-center gap-1 text-sm font-bold text-[#E30613] hover:text-red-800 transition-colors">
+              Manage Profile &rarr;
             </a>
           </div>
 
@@ -180,4 +228,25 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+// Helper icon component for the bottom card
+function Settings(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
 }

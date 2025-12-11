@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
+import { auth } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
@@ -85,4 +86,48 @@ export async function updateSystemSettings(prevState: any, formData: FormData) {
   // Also revalidate Sales where invoice is generated
   revalidatePath('/dashboard/sales'); 
   return { message: 'System Configuration Saved', success: true };
+}
+// ... existing imports
+// import { auth } from '@/auth'; // You might need to import auth to get the user ID securely
+
+// ... existing actions (updateProfile, changePassword, updateSystemSettings) ...
+
+// 4. POST ANNOUNCEMENT
+export async function createAnnouncement(prevState: any, formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) return { message: 'Unauthorized' };
+
+  const title = formData.get('title') as string;
+  const message = formData.get('message') as string;
+
+  if (!title || !message) return { message: 'Title and Message are required' };
+
+  try {
+    await prisma.announcement.create({
+      data: {
+        title,
+        message,
+        createdById: session.user.id,
+        isActive: true
+      }
+    });
+  } catch (e) {
+    return { message: 'Failed to post announcement' };
+  }
+
+  revalidatePath('/dashboard'); // Update Dashboard
+  revalidatePath('/dashboard/settings');
+  return { message: 'Announcement Posted Successfully', success: true };
+}
+
+// 5. DELETE ANNOUNCEMENT
+export async function deleteAnnouncement(announcementId: string) {
+  try {
+    await prisma.announcement.delete({ where: { id: announcementId } });
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/settings');
+    return { message: 'Deleted' };
+  } catch (e) {
+    return { message: 'Failed to delete' };
+  }
 }

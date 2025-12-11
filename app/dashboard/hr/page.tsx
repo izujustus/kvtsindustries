@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+// import { PrismaClient } from '@prisma/client';
 import { Users, DollarSign, Briefcase } from 'lucide-react';
-// import HRClientWrapper from './client-wrapper';
 import HRClientWrapper from './client-wrapper';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -11,29 +11,36 @@ export default async function HRPage() {
     orderBy: { createdAt: 'desc' }
   });
 
-  // TRANSFORM
+  // TRANSFORM EMPLOYEES: Convert Decimal to Number for the Client
   const employees = rawEmployees.map(e => ({
     ...e,
     basicSalary: Number(e.basicSalary),
   }));
 
-  // 2. Fetch Payroll History
+  // 2. Fetch Payroll History with Nested Employee Data
   const rawPayrolls = await prisma.payroll.findMany({
     take: 50,
     orderBy: { paymentDate: 'desc' },
-    include: { employee: true }
+    include: { employee: true } // Fetch the related employee
   });
 
-  // TRANSFORM
+  // TRANSFORM PAYROLLS: Convert Decimals in both Payroll AND Nested Employee
   const payrolls = rawPayrolls.map(p => ({
     ...p,
+    // Fix Top-level Decimals
     basicSalary: Number(p.basicSalary),
     totalAllowances: Number(p.totalAllowances),
     totalDeductions: Number(p.totalDeductions),
     netPay: Number(p.netPay),
+    
+    // Fix Nested Employee Decimals (Critical Fix)
+    employee: {
+      ...p.employee,
+      basicSalary: Number(p.employee.basicSalary)
+    }
   }));
 
-  // Stats
+  // Stats Calculations
   const totalEmployees = employees.length;
   const totalPayrollCost = payrolls.reduce((sum, p) => sum + p.netPay, 0);
 

@@ -16,6 +16,7 @@ const EmployeeSchema = z.object({
   position: z.string().min(1),
   basicSalary: z.coerce.number().min(0),
   hireDate: z.string(),
+  dateOfBirth: z.string().optional(), // NEW FIELD
 });
 
 const PayrollComponentSchema = z.object({
@@ -42,6 +43,7 @@ export async function createEmployee(prevState: any, formData: FormData) {
     position: formData.get('position'),
     basicSalary: formData.get('basicSalary'),
     hireDate: formData.get('hireDate'),
+    dateOfBirth: formData.get('dateOfBirth'), // Capture DOB
   });
 
   if (!validated.success) return { message: 'Validation Failed' };
@@ -67,6 +69,8 @@ export async function createEmployee(prevState: any, formData: FormData) {
         position: data.position,
         basicSalary: data.basicSalary,
         hireDate: new Date(data.hireDate),
+        // Save DOB if provided, else null
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
         currencyId: currency.id,
         status: 'ACTIVE',
       }

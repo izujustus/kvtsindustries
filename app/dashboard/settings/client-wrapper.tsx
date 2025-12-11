@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import clsx from 'clsx';
-import { User, Lock, Building } from 'lucide-react';
-import { ProfileForm, SecurityForm, SystemForm } from '@/app/ui/settings/settings-forms';
+import { User, Lock, Building, Megaphone } from 'lucide-react';
+import { ProfileForm, SecurityForm, SystemForm, AnnouncementForm } from '@/app/ui/settings/settings-forms';
 
-export default function SettingsClientWrapper({ user, settings }: any) {
+export default function SettingsClientWrapper({ user, settings, announcements }: any) {
   const [tab, setTab] = useState('PROFILE');
   const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
 
@@ -35,15 +35,30 @@ export default function SettingsClientWrapper({ user, settings }: any) {
           </button>
 
           {isAdmin && (
-            <button 
-              onClick={() => setTab('SYSTEM')}
-              className={clsx(
-                "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors",
-                tab === 'SYSTEM' ? "bg-white text-[#E30613] shadow-sm border border-gray-200" : "text-gray-600 hover:bg-gray-100"
-              )}
-            >
-              <Building className="w-4 h-4" /> Company Settings
-            </button>
+            <>
+              <div className="my-2 border-t border-gray-200"></div>
+              <p className="px-4 text-xs font-bold text-gray-400 uppercase mb-1">Admin Zone</p>
+              
+              <button 
+                onClick={() => setTab('SYSTEM')}
+                className={clsx(
+                  "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                  tab === 'SYSTEM' ? "bg-white text-[#E30613] shadow-sm border border-gray-200" : "text-gray-600 hover:bg-gray-100"
+                )}
+              >
+                <Building className="w-4 h-4" /> Company Settings
+              </button>
+
+              <button 
+                onClick={() => setTab('ANNOUNCEMENTS')}
+                className={clsx(
+                  "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                  tab === 'ANNOUNCEMENTS' ? "bg-white text-[#E30613] shadow-sm border border-gray-200" : "text-gray-600 hover:bg-gray-100"
+                )}
+              >
+                <Megaphone className="w-4 h-4" /> Announcements
+              </button>
+            </>
           )}
         </nav>
       </div>
@@ -72,6 +87,14 @@ export default function SettingsClientWrapper({ user, settings }: any) {
             <h2 className="text-xl font-bold text-gray-900 mb-1">Company Configuration</h2>
             <p className="text-sm text-gray-500 mb-6">These details appear on Invoices and Reports</p>
             <SystemForm settings={settings} />
+          </div>
+        )}
+
+        {tab === 'ANNOUNCEMENTS' && isAdmin && (
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Manage Announcements</h2>
+            <p className="text-sm text-gray-500 mb-6">Post updates to the main dashboard for all employees.</p>
+            <AnnouncementForm announcements={announcements} />
           </div>
         )}
 

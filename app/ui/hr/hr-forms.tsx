@@ -35,6 +35,10 @@ export function EmployeeForm({ onClose }: { onClose: () => void }) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
+          <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+          <input name="dateOfBirth" type="date" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#E30613] focus:ring-[#E30613]" />
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700">Department</label>
           <select name="department" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
             <option value="Production">Production</option>
@@ -42,23 +46,25 @@ export function EmployeeForm({ onClose }: { onClose: () => void }) {
             <option value="Accounting">Accounting</option>
             <option value="HR">HR</option>
             <option value="Logistics">Logistics</option>
+            <option value="Store">Store / Warehouse</option>
           </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Position</label>
-          <input name="position" placeholder="e.g. Operator" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
+          <label className="block text-sm font-medium text-gray-700">Position</label>
+          <input name="position" placeholder="e.g. Operator" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700">Hire Date</label>
           <input name="hireDate" type="date" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Basic Salary</label>
-          <input name="basicSalary" type="number" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
-        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Basic Salary</label>
+        <input name="basicSalary" type="number" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
@@ -109,12 +115,12 @@ export function PayrollForm({ employees, onClose }: { employees: any[], onClose:
         <label className="block text-sm font-medium text-gray-700">Select Employee</label>
         <select 
           name="employeeId" 
-          onChange={(e) => setSelectedEmp(employees.find(em => em.id === e.target.value))}
+          onChange={(e) => setSelectedEmp(employees.find((em: any) => em.id === e.target.value))}
           required 
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         >
           <option value="">-- Select --</option>
-          {employees.map(e => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
+          {employees.map((e: any) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
         </select>
       </div>
 

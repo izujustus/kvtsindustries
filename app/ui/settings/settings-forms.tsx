@@ -1,8 +1,8 @@
 'use client';
 
 import { useActionState, useEffect } from 'react';
-import { updateProfile, changePassword, updateSystemSettings } from '@/app/lib/settings-actions';
-import { Save, Lock, User, Building } from 'lucide-react';
+import { updateProfile, changePassword, updateSystemSettings, createAnnouncement, deleteAnnouncement } from '@/app/lib/settings-actions';
+import { Save, Lock, User, Building, Plus, Trash, Megaphone } from 'lucide-react';
 
 // 1. PROFILE FORM
 export function ProfileForm({ user }: { user: any }) {
@@ -116,5 +116,83 @@ export function SystemForm({ settings }: { settings: any }) {
         <Save className="w-4 h-4" /> {isPending ? 'Saving...' : 'Save Configuration'}
       </button>
     </form>
+  );
+}
+
+// 4. ANNOUNCEMENT MANAGER FORM (New)
+export function AnnouncementForm({ announcements }: { announcements: any[] }) {
+  const [state, action, isPending] = useActionState(createAnnouncement, undefined);
+
+  // Helper function to handle delete with confirmation
+  const handleDeleteClick = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this announcement?")) {
+      await deleteAnnouncement(id);
+    }
+  };
+  
+  return (
+    <div className="space-y-8">
+      {/* CREATE NEW */}
+      <form action={action} className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4">
+        <h3 className="font-bold text-gray-800 flex items-center gap-2 border-b border-gray-200 pb-2">
+          <Megaphone className="w-5 h-5 text-[#E30613]" /> Post New Announcement
+        </h3>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Title / Subject</label>
+          <input name="title" required placeholder="e.g. Scheduled System Maintenance" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm focus:ring-[#E30613] focus:border-[#E30613]" />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Message Body</label>
+          <textarea name="message" required rows={3} placeholder="Enter the details of the announcement here..." className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm focus:ring-[#E30613] focus:border-[#E30613]" />
+        </div>
+
+        <div className="flex justify-between items-center pt-2">
+          <div>
+             {state?.message && <p className={state.success ? "text-green-600 text-sm font-medium" : "text-red-600 text-sm font-medium"}>{state.message}</p>}
+          </div>
+          
+          <button disabled={isPending} className="bg-black text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-gray-800 flex items-center gap-2">
+            {isPending ? 'Posting...' : (
+              <>
+                <Plus className="w-4 h-4" /> Post Now
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+
+      {/* LIST EXISTING */}
+      <div>
+        <h3 className="font-bold text-gray-900 mb-4">Active Announcements</h3>
+        <div className="space-y-3">
+          {announcements.length === 0 && <p className="text-gray-500 text-sm italic bg-white p-4 rounded border border-dashed text-center">No active announcements.</p>}
+          
+          {announcements.map((ann) => (
+            <div key={ann.id} className="flex justify-between items-start p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex-1">
+                <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                  {ann.title}
+                  <span className="text-[10px] font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {new Date(ann.createdAt).toLocaleDateString()}
+                  </span>
+                </h4>
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{ann.message}</p>
+              </div>
+              
+              <button 
+                type="button"
+                onClick={() => handleDeleteClick(ann.id)}
+                className="ml-4 text-gray-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors"
+                title="Delete Announcement"
+              >
+                <Trash className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
