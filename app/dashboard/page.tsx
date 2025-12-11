@@ -1,7 +1,8 @@
 // import { auth } from '@/auth';
 import { auth } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
-import { Calendar, Bell, Gift, Megaphone, Cake, Sparkles } from 'lucide-react';
+import { Calendar, Bell, Gift, Megaphone, Cake, Sparkles, Settings } from 'lucide-react'; // Added Settings icon for bottom card
+import AnnouncementFeed from './announcement-feed'; // <--- NEW IMPORT
 
 const prisma = new PrismaClient();
 
@@ -11,10 +12,11 @@ export default async function DashboardPage() {
   const userName = session?.user?.name || 'Staff Member';
 
   // 1. Fetch Announcements
+  // Updated take: 10 so the scrollable list has more content
   const announcements = await prisma.announcement.findMany({
     where: { isActive: true },
     orderBy: { createdAt: 'desc' },
-    take: 3,
+    take: 10, 
     include: { createdBy: true }
   });
 
@@ -98,41 +100,8 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* LEFT COL: ANNOUNCEMENTS */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <Megaphone className="w-5 h-5 text-[#E30613]" /> Company Updates
-            </h3>
-            {(userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') && (
-               <span className="text-[10px] uppercase tracking-wider bg-gray-900 text-white px-2 py-1 rounded font-medium">Admin View</span>
-            )}
-          </div>
-          <div className="divide-y divide-gray-100 flex-1 overflow-y-auto max-h-[400px]">
-            {announcements.length > 0 ? (
-              announcements.map((msg) => (
-                <div key={msg.id} className="p-6 hover:bg-gray-50 transition-colors group">
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-bold text-gray-800 group-hover:text-[#E30613] transition-colors">{msg.title}</h4>
-                    <span className="text-xs text-gray-400 whitespace-nowrap ml-2">{new Date(msg.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">{msg.message}</p>
-                  <div className="mt-3 text-xs font-medium text-gray-400 flex items-center gap-1.5">
-                    <div className="w-6 h-6 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500">
-                      {msg.createdBy.name?.charAt(0) || 'A'}
-                    </div>
-                    From {msg.createdBy.name || 'Management'}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center h-full">
-                <Bell className="w-10 h-10 mb-3 opacity-20" />
-                <p>No new announcements at this time.</p>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* LEFT COL: ANNOUNCEMENTS (Updated to use Client Component) */}
+        <AnnouncementFeed announcements={announcements} userRole={userRole} />
 
         {/* RIGHT COL: BIRTHDAYS & ALERTS */}
         <div className="space-y-6">
@@ -169,7 +138,7 @@ export default async function DashboardPage() {
                              Happy Birthday! <Sparkles className="w-4 h-4 animate-pulse text-yellow-300" />
                           </h4>
                           <p className="font-medium mt-1">
-                            {birthdaysToday.map(e => e.firstName + ' ' + e.lastName).join(', ')}
+                            {birthdaysToday.map((e: any) => e.firstName + ' ' + e.lastName).join(', ')}
                           </p>
                           <p className="text-sm text-purple-100 mt-2 leading-relaxed">
                             KVTS Industries wishes you a fantastic day and a prosperous year ahead. Thank you for all that you do!
@@ -184,7 +153,7 @@ export default async function DashboardPage() {
                     <div>
                       {birthdaysToday.length > 0 && <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 pl-1">Also Coming Up</h5>}
                       <ul className="space-y-3">
-                        {birthdaysUpcoming.map(emp => (
+                        {birthdaysUpcoming.map((emp: any) => (
                           <li key={emp.id} className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors bg-white shadow-sm">
                             <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold bg-purple-100 text-purple-700 border border-purple-200">
                               {emp.firstName.charAt(0)}
@@ -231,7 +200,7 @@ export default async function DashboardPage() {
 }
 
 // Helper icon component for the bottom card
-function Settings(props: any) {
+function SettingsIcon(props: any) {
   return (
     <svg
       {...props}
