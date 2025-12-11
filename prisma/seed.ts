@@ -4,14 +4,14 @@ import * as bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Starting Seeding...')
+  console.log('🌱 Starting Database Seeding...')
 
-  // 1. Hash the password once
-  // This ensures all users have the same hashed password in the DB
+  // 1. Hash the password
+  // Default password for everyone: Freedom@2024
   const password = "Freedom@2024"
   const passwordHash = await bcrypt.hash(password, 12)
 
-  // 2. Define the users to create based on your Enum
+  // 2. Define Users
   const usersToCreate = [
     {
       role: Role.SUPER_ADMIN,
@@ -55,15 +55,14 @@ async function main() {
     },
   ]
 
-  // 3. Loop through and create/update each user
+  // 3. Create Users
   for (const user of usersToCreate) {
     const upsertedUser = await prisma.user.upsert({
       where: { email: user.email },
       update: {
-        // If user exists, we just reset their role and name to be sure
         role: user.role,
         name: user.name,
-        passwordHash: passwordHash, // Reset password to default if re-seeded
+        passwordHash: passwordHash, // Reset password
         isActive: true,
       },
       create: {
@@ -74,13 +73,13 @@ async function main() {
         isActive: true,
       },
     })
-    
-    console.log(`✅ Created/Updated user: ${upsertedUser.email} [${upsertedUser.role}]`)
+    console.log(`✅ User: ${upsertedUser.email} [${upsertedUser.role}]`)
   }
 
-  // 4. (Optional) Seed a Base Currency so the app doesn't crash on financial views
+  // 4. Create Base Currency (CRITICAL for App Functionality)
+  // Without this, the Sales/HR pages will throw "No Base Currency" errors.
   const baseCurrency = await prisma.currency.upsert({
-    where: { code: 'NGN' }, // Assuming Nigerian Naira based on your previous messages, or change to USD
+    where: { code: 'NGN' }, 
     update: {},
     create: {
       code: 'NGN',
@@ -90,9 +89,22 @@ async function main() {
       isActive: true
     }
   })
-  console.log(`✅ Created Base Currency: ${baseCurrency.code}`)
+  console.log(`✅ Base Currency: ${baseCurrency.code}`)
 
-  console.log('✨ Seeding completed.')
+  // 5. Create System Settings (Optional but good for Invoice generation)
+  const settings = await prisma.systemSetting.findFirst();
+  if (!settings) {
+    await prisma.systemSetting.create({
+      data: {
+        companyName: 'KVTS INDUSTRIES CO., LTD.',
+        companyAddress: 'Plot 15 Industrial Layout, Emene, Enugu State',
+        defaultTaxRate: 7.5
+      }
+    });
+    console.log(`✅ System Settings Initialized`)
+  }
+
+  console.log('✨ Formatting & Seeding Completed.')
 }
 
 main()

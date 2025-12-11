@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "./ui/ui/sw-register";
+// FIXED: Removed the extra '/ui' from the path
+// import ServiceWorkerRegister from "./ui/sw-register"; 
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,6 +15,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// 1. ADDED VIEWPORT (Crucial for Mobile App "Feel")
+export const viewport: Viewport = {
+  themeColor: "#E30613", // Your Brand Red
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // Prevents zooming like a native app
+};
+
 export const metadata: Metadata = {
   title: {
     template: "%s | KVTS Industries",
@@ -20,7 +31,17 @@ export const metadata: Metadata = {
   },
   description: "Enterprise Resource Planning System for KVTS Industries. Production, Sales, and Accounting Management.",
   icons: {
-    icon: "/logo.png", // This will use your logo in the browser tab
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'KVTS ERP',
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 
@@ -34,7 +55,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-full bg-gray-50 text-gray-900`}
       >
-        <ServiceWorkerRegister /> {/* Activate PWA features */}
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>

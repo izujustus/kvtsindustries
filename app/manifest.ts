@@ -11,14 +11,16 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#E30613',
     icons: [
       {
-        src: '/logo.png', // We use your existing logo
+        src: '/logo.png',
         sizes: '192x192',
         type: 'image/png',
+        purpose: 'any', // Used for standard icons
       },
       {
         src: '/logo.png',
         sizes: '512x512',
         type: 'image/png',
+        // purpose: 'any maskable', // Used for Android adaptive icons
       },
     ],
   };
