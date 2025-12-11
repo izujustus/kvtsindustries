@@ -9,17 +9,23 @@ import { auth } from '@/lib/auth';
 const prisma = new PrismaClient();
 
 // 1. UPDATE USER PROFILE
+// 1. UPDATE USER PROFILE (Email Update Removed)
 export async function updateProfile(prevState: any, formData: FormData) {
   const id = formData.get('id') as string;
   const name = formData.get('name') as string;
-  const email = formData.get('email') as string;
+  
+  // We do not extract 'email' because disabled fields are not sent, 
+  // and we don't want to update it anyway.
 
-  if (!id || !name || !email) return { message: 'Missing Fields' };
+  if (!id || !name) return { message: 'Missing Fields' };
 
   try {
     await prisma.user.update({
       where: { id },
-      data: { name, email }
+      data: { 
+        name, 
+        // Email is intentionally omitted here to prevent changes
+      }
     });
   } catch (e) {
     return { message: 'Failed to update profile.' };
@@ -87,10 +93,7 @@ export async function updateSystemSettings(prevState: any, formData: FormData) {
   revalidatePath('/dashboard/sales'); 
   return { message: 'System Configuration Saved', success: true };
 }
-// ... existing imports
-// import { auth } from '@/auth'; // You might need to import auth to get the user ID securely
 
-// ... existing actions (updateProfile, changePassword, updateSystemSettings) ...
 
 // 4. POST ANNOUNCEMENT
 export async function createAnnouncement(prevState: any, formData: FormData) {

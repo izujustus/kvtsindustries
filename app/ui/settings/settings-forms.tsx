@@ -24,14 +24,21 @@ export function ProfileForm({ user }: { user: any }) {
 
       <div>
         <label className="block text-sm font-medium text-gray-700">Email Address</label>
-        <input name="email" type="email" defaultValue={user.email} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm readOnly
- focus:ring-[#E30613] focus:border-[#E30613] sm:text-sm p-2 border" />
+        {/* DISABLED EMAIL INPUT */}
+        <input 
+          disabled 
+          name="email" 
+          type="email" 
+          defaultValue={user.email} 
+          className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 sm:text-sm p-2 border cursor-not-allowed" 
+        />
+        <p className="text-xs text-gray-500 mt-1">Email cannot be changed. Contact Super Admin for assistance.</p>
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700">Role</label>
         <input disabled value={user.role} className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 text-gray-500 sm:text-sm p-2 border cursor-not-allowed" />
-        <p className="text-xs text-gray-500 mt-1">Role cannot be changed here. Contact Super Admin.</p>
+        <p className="text-xs text-gray-500 mt-1">Role cannot be changed here.</p>
       </div>
 
       {state?.message && <p className={state.success ? "text-green-600 text-sm" : "text-red-600 text-sm"}>{state.message}</p>}
