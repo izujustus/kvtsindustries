@@ -1,8 +1,20 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
-import { updateProfile, changePassword, updateSystemSettings, createAnnouncement, deleteAnnouncement } from '@/app/lib/settings-actions';
-import { Save, Lock, User, Building, Plus, Trash, Megaphone } from 'lucide-react';
+import { useActionState, useState } from 'react';
+import { 
+  updateProfile, 
+  changePassword, 
+  updateSystemSettings, 
+  createAnnouncement, 
+  deleteAnnouncement,
+  createDepartment, 
+  deleteDepartment, 
+  createSubDepartment, 
+  deleteSubDepartment 
+} from '@/app/lib/settings-actions';
+import { 
+  Save, Lock, User, Building, Plus, Trash, Megaphone, Briefcase, ChevronRight, ChevronDown, CornerDownRight 
+} from 'lucide-react';
 
 // 1. PROFILE FORM
 export function ProfileForm({ user }: { user: any }) {
@@ -127,7 +139,7 @@ export function SystemForm({ settings }: { settings: any }) {
   );
 }
 
-// 4. ANNOUNCEMENT MANAGER FORM (New)
+// 4. ANNOUNCEMENT MANAGER FORM
 export function AnnouncementForm({ announcements }: { announcements: any[] }) {
   const [state, action, isPending] = useActionState(createAnnouncement, undefined);
 
@@ -200,6 +212,138 @@ export function AnnouncementForm({ announcements }: { announcements: any[] }) {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// 5. DEPARTMENT & SUB-DEPARTMENT MANAGER (NEW)
+export function DepartmentForm({ departments }: { departments: any[] }) {
+  const [createDeptState, createDeptAction, isDeptPending] = useActionState(createDepartment, undefined);
+  const [createSubState, createSubAction, isSubPending] = useActionState(createSubDepartment, undefined);
+  
+  // State to toggle open/close of departments
+  const [openDeptId, setOpenDeptId] = useState<string | null>(null);
+
+  const toggleDept = (id: string) => {
+    setOpenDeptId(openDeptId === id ? null : id);
+  };
+
+  const handleDeleteDept = async (id: string) => {
+    if (confirm('Delete this Department? Warning: All sub-departments under it will be deleted too.')) {
+      await deleteDepartment(id);
+    }
+  };
+
+  const handleDeleteSub = async (id: string) => {
+    if (confirm('Delete this Sub-Department?')) {
+      await deleteSubDepartment(id);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* 1. CREATE PARENT DEPARTMENT */}
+      <form action={createDeptAction} className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4">
+        <h3 className="font-bold text-gray-800 flex items-center gap-2 border-b border-gray-200 pb-2">
+          <Briefcase className="w-5 h-5 text-[#E30613]" /> Add Main Department
+        </h3>
+        
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <input 
+              name="name" 
+              required 
+              placeholder="e.g. Production" 
+              className="block w-full rounded-md border-gray-300 shadow-sm p-2 border sm:text-sm focus:ring-[#E30613] focus:border-[#E30613]" 
+            />
+          </div>
+          <button disabled={isDeptPending} className="bg-black text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-gray-800">
+            {isDeptPending ? 'Adding...' : 'Add'}
+          </button>
+        </div>
+        {/* Error message for Main Department */}
+        {createDeptState?.message && (
+          <p className={createDeptState.success ? "text-green-600 text-xs" : "text-red-600 text-xs"}>
+            {createDeptState.message}
+          </p>
+        )}
+      </form>
+
+      {/* 2. LIST DEPARTMENTS (Accordion Style) */}
+      <div>
+        <h3 className="font-bold text-gray-900 mb-4">Organization Structure</h3>
+        {departments.length === 0 ? (
+           <p className="text-gray-500 text-sm italic">No departments created yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {departments.map((dept) => {
+              const isOpen = openDeptId === dept.id;
+
+              return (
+                <div key={dept.id} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all">
+                  
+                  {/* Parent Header */}
+                  <div className="flex justify-between items-center p-3 bg-white hover:bg-gray-50 cursor-pointer" onClick={() => toggleDept(dept.id)}>
+                    <div className="flex items-center gap-2">
+                      {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                      <span className="font-bold text-gray-800">{dept.name}</span>
+                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                        {dept.subDepartments?.length || 0} Sections
+                      </span>
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteDept(dept.id); }} 
+                      className="text-gray-300 hover:text-red-600 p-2"
+                      title="Delete Department"
+                    >
+                      <Trash className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Nested Sub-Departments (Visible only if open) */}
+                  {isOpen && (
+                    <div className="bg-gray-50 p-4 border-t border-gray-100 animate-fade-in">
+                      
+                      {/* Sub List */}
+                      <div className="space-y-2 mb-4 pl-4 border-l-2 border-gray-200 ml-1">
+                        {(!dept.subDepartments || dept.subDepartments.length === 0) && (
+                          <p className="text-xs text-gray-400 italic">No sub-departments defined.</p>
+                        )}
+                        
+                        {dept.subDepartments?.map((sub: any) => (
+                          <div key={sub.id} className="flex justify-between items-center group">
+                             <div className="flex items-center gap-2 text-sm text-gray-600">
+                               <CornerDownRight className="w-3 h-3 text-gray-300" />
+                               {sub.name}
+                             </div>
+                             <button onClick={() => handleDeleteSub(sub.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600">
+                               <Trash className="w-3 h-3" />
+                             </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add Sub Form */}
+                      <form action={createSubAction} className="flex gap-2 mt-2 items-center">
+                        <input type="hidden" name="departmentId" value={dept.id} />
+                        <input 
+                          name="name" 
+                          required 
+                          placeholder={`Add section to ${dept.name}...`} 
+                          className="flex-1 rounded-md border-gray-300 shadow-sm p-1.5 border text-xs focus:ring-[#E30613] focus:border-[#E30613]" 
+                        />
+                        <button disabled={isSubPending} className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-xs font-bold hover:bg-gray-100 flex items-center gap-1">
+                           <Plus className="w-3 h-3" /> Add
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

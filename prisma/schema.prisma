@@ -165,6 +165,8 @@ model ExchangeRate {
 // 2. HR & PAYROLL MANAGEMENT
 // ============================================================================
 
+
+
 model Employee {
   id             String   @id @default(cuid())
   
@@ -178,7 +180,7 @@ model Employee {
   dateOfBirth     DateTime?
   
   // Job Details
-  department     String
+  
   position       String
   hireDate       DateTime
   status         String   @default("ACTIVE") // ACTIVE, TERMINATED, ON_LEAVE
@@ -193,6 +195,11 @@ model Employee {
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  departmentId    String
+  department      Department     @relation(fields: [departmentId], references: [id])
+  subDepartmentId String?
+  subDepartment   SubDepartment? @relation(fields: [subDepartmentId], references: [id])
 
   // RELATIONS
   currency       Currency  @relation(fields: [currencyId], references: [id])
@@ -710,4 +717,33 @@ model Announcement {
   createdBy   User     @relation(fields: [createdById], references: [id])
 
   @@map("announcements")
+}
+
+// 1. UPDATE DEPARTMENT
+model Department {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  subDepartments SubDepartment[] // New Relation
+  employees      Employee[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("departments")
+}
+
+// 2. CREATE SUB-DEPARTMENT (NEW)
+model SubDepartment {
+  id           String     @id @default(cuid())
+  name         String
+  
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  
+  employees    Employee[] // Relation to employees
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([name, departmentId]) // Prevent duplicate names inside the same department
+  @@map("sub_departments")
 }
