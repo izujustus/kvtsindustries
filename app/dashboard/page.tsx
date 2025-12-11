@@ -1,8 +1,8 @@
 // import { auth } from '@/auth';
 import { auth } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
-import { Calendar, Bell, Gift, Megaphone, Cake, Sparkles, Settings } from 'lucide-react'; // Added Settings icon for bottom card
-import AnnouncementFeed from './announcement-feed'; // <--- NEW IMPORT
+import { Calendar, Bell, Gift, Megaphone, Cake, Sparkles, Settings } from 'lucide-react'; 
+import AnnouncementFeed from './announcement-feed';
 
 const prisma = new PrismaClient();
 
@@ -12,7 +12,6 @@ export default async function DashboardPage() {
   const userName = session?.user?.name || 'Staff Member';
 
   // 1. Fetch Announcements
-  // Updated take: 10 so the scrollable list has more content
   const announcements = await prisma.announcement.findMany({
     where: { isActive: true },
     orderBy: { createdAt: 'desc' },
@@ -20,10 +19,19 @@ export default async function DashboardPage() {
     include: { createdBy: true }
   });
 
-  // 2. Fetch Employees & Filter Birthdays (Robust Logic)
+  // 2. Fetch Employees & Filter Birthdays
   const employees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' },
-    select: { id: true, firstName: true, lastName: true, department: true, dateOfBirth: true }
+    select: { 
+      id: true, 
+      firstName: true, 
+      lastName: true, 
+      // FIX: Select the Name from the Department Relation
+      department: {
+        select: { name: true }
+      },
+      dateOfBirth: true 
+    }
   });
 
   const today = new Date();
@@ -40,15 +48,20 @@ export default async function DashboardPage() {
     if (!emp.dateOfBirth) return;
     
     const dob = new Date(emp.dateOfBirth);
-    // Calculate birthday for current year using UTC to avoid timezone issues
     const bDayThisYear = new Date(today.getFullYear(), dob.getUTCMonth(), dob.getUTCDate());
     
-    // Handle end-of-year wrap-around
     if (bDayThisYear < today) {
       bDayThisYear.setFullYear(today.getFullYear() + 1);
     }
 
-    const empWithDate = { ...emp, birthdayThisYear: bDayThisYear };
+    // FIX: Flatten department name for the UI
+    const deptName = emp.department?.name || 'General';
+
+    const empWithDate = { 
+      ...emp, 
+      department: deptName, // Override object with string for display
+      birthdayThisYear: bDayThisYear 
+    };
 
     if (bDayThisYear.getTime() === today.getTime()) {
       birthdaysToday.push(empWithDate);
@@ -57,9 +70,7 @@ export default async function DashboardPage() {
     }
   });
 
-  // Sort upcoming by date
   birthdaysUpcoming.sort((a, b) => a.birthdayThisYear.getTime() - b.birthdayThisYear.getTime());
-
 
   // 3. Role-Based Quick Stat
   let quickStat = { label: 'System Status', value: 'Online' };
@@ -100,7 +111,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* LEFT COL: ANNOUNCEMENTS (Updated to use Client Component) */}
+        {/* LEFT COL: ANNOUNCEMENTS */}
         <AnnouncementFeed announcements={announcements} userRole={userRole} />
 
         {/* RIGHT COL: BIRTHDAYS & ALERTS */}
@@ -126,7 +137,7 @@ export default async function DashboardPage() {
                   {/* --- TODAY'S SPECIAL BANNER --- */}
                   {birthdaysToday.length > 0 && (
                     <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-5 text-white shadow-lg">
-                      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-soft-light"></div> {/* Optional texture */}
+                      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-soft-light"></div>
                       <div className="absolute -top-10 -right-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl animate-pulse"></div>
                       
                       <div className="relative z-10 flex items-start gap-4">
@@ -197,25 +208,4 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
-}
-
-// Helper icon component for the bottom card
-function SettingsIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
 }
