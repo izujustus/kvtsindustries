@@ -12,11 +12,13 @@ const EmployeeSchema = z.object({
   lastName: z.string().min(1),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
-  department: z.string().min(1),
+  // UPDATE: Now expects ID strings for relations
+  departmentId: z.string().min(1, "Department is required"),
+  subDepartmentId: z.string().optional(),
   position: z.string().min(1),
   basicSalary: z.coerce.number().min(0),
   hireDate: z.string(),
-  dateOfBirth: z.string().optional(), // NEW FIELD
+  dateOfBirth: z.string().optional(),
 });
 
 const PayrollComponentSchema = z.object({
@@ -34,19 +36,25 @@ const PayrollSchema = z.object({
 
 // 1. CREATE EMPLOYEE
 export async function createEmployee(prevState: any, formData: FormData) {
+  // Extract and validate
   const validated = EmployeeSchema.safeParse({
     firstName: formData.get('firstName'),
     lastName: formData.get('lastName'),
     email: formData.get('email'),
     phone: formData.get('phone'),
-    department: formData.get('department'),
+    // Map the form fields 'department' and 'subDepartment' to our schema IDs
+    departmentId: formData.get('department'), 
+    subDepartmentId: formData.get('subDepartment'),
     position: formData.get('position'),
     basicSalary: formData.get('basicSalary'),
     hireDate: formData.get('hireDate'),
-    dateOfBirth: formData.get('dateOfBirth'), // Capture DOB
+    dateOfBirth: formData.get('dateOfBirth'),
   });
 
-  if (!validated.success) return { message: 'Validation Failed' };
+  if (!validated.success) {
+    return { message: 'Validation Failed: Missing required fields' };
+  }
+  
   const data = validated.data;
 
   // Auto-generate Employee Number (EMP-001)
@@ -55,7 +63,7 @@ export async function createEmployee(prevState: any, formData: FormData) {
 
   // Get Default Currency
   const currency = await prisma.currency.findFirst({ where: { isBaseCurrency: true } });
-  if (!currency) return { message: 'No Base Currency Found' };
+  if (!currency) return { message: 'No Base Currency Found. Please run seed.' };
 
   try {
     await prisma.employee.create({
@@ -65,18 +73,25 @@ export async function createEmployee(prevState: any, formData: FormData) {
         lastName: data.lastName,
         email: data.email || null,
         phone: data.phone,
-        department: data.department,
+        
+        // --- RELATIONSHIPS ---
+        // Connect to the Department Table using the ID
+        departmentId: data.departmentId,
+        // Connect to SubDepartment if provided (handle empty string as null)
+        subDepartmentId: data.subDepartmentId || null,
+        
         position: data.position,
         basicSalary: data.basicSalary,
         hireDate: new Date(data.hireDate),
-        // Save DOB if provided, else null
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
         currencyId: currency.id,
         status: 'ACTIVE',
       }
     });
   } catch (e: any) {
+    console.error(e);
     if (e.code === 'P2002') return { message: 'Email already exists' };
+    if (e.code === 'P2003') return { message: 'Invalid Department selected' }; // Foreign Key Error
     return { message: 'Database Error' };
   }
 
