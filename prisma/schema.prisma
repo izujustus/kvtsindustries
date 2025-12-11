@@ -676,3 +676,22 @@ model SalesInvoiceItem {
 
   @@map("sales_invoice_items")
 }
+
+// Global System Configuration
+model SystemSetting {
+  id              String   @id @default(cuid())
+  
+  // Company Info (For Invoices)
+  companyName     String   @default("KVTS INDUSTRIES CO., LTD.")
+  companyAddress  String   @db.Text
+  companyPhone    String?
+  companyEmail    String?
+  
+  // Financial Defaults
+  defaultTaxRate  Decimal  @db.Decimal(5, 2) @default(7.5) // e.g. 7.5% VAT
+  currencySymbol  String   @default("₦")
+  
+  updatedAt       DateTime @updatedAt
+
+  @@map("system_settings")
+}
