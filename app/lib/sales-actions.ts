@@ -24,6 +24,8 @@ const InvoiceSchema = z.object({
   customerId: z.string(),
   date: z.string(),
   dueDate: z.string(),
+  destination: z.string().optional(),     // NEW
+  loadingLocation: z.string().optional(), // NEW
   items: z.array(InvoiceItemSchema).min(1, "At least one item required"),
 });
 
@@ -64,17 +66,29 @@ export async function createInvoice(prevState: any, formData: FormData) {
     customerId: formData.get('customerId'),
     date: formData.get('date'),
     dueDate: formData.get('dueDate'),
+    destination: formData.get('destination'),         // NEW
+    loadingLocation: formData.get('loadingLocation'), // NEW
     items: items,
   });
 
   if (!validated.success) return { message: 'Invalid Invoice Data' };
-  const { customerId, date, dueDate, items: invoiceItems } = validated.data;
+  
+  const { 
+    customerId, 
+    date, 
+    dueDate, 
+    destination, 
+    loadingLocation, 
+    items: invoiceItems 
+  } = validated.data;
 
   // Calculate Total
   const totalAmount = invoiceItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   
-  // Generate Invoice Number (Simple Timestamp based for now, or use a Sequence in real DB)
-  const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+  // Generate Professional Invoice Number: KVTS-YY-XXXX
+  const yearShort = new Date().getFullYear().toString().slice(-2);
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 digit random
+  const invoiceNumber = `KVTS-${yearShort}-${randomSuffix}`;
 
   // Default Currency (Get ID of Base Currency - NGN/USD)
   const baseCurrency = await prisma.currency.findFirst({ where: { isBaseCurrency: true } });
@@ -89,6 +103,8 @@ export async function createInvoice(prevState: any, formData: FormData) {
           customerId,
           date: new Date(date),
           dueDate: new Date(dueDate),
+          destination: destination || 'N/A',
+          loadingLocation: loadingLocation || 'Enugu KVTS Industries',
           currencyId: baseCurrency.id,
           totalAmount,
           balanceDue: totalAmount, // Initially, full amount is due
@@ -98,6 +114,7 @@ export async function createInvoice(prevState: any, formData: FormData) {
               productId: item.productId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
+              packageType: 'Piece', // You can make this dynamic later if needed
               total: item.quantity * item.unitPrice
             }))
           }

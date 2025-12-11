@@ -429,52 +429,9 @@ model Customer {
   @@map("customers")
 }
 
-model SalesInvoice {
-  id             String        @id @default(cuid())
-  invoiceNumber  String        @unique
-  customerId     String
-  date           DateTime
-  dueDate        DateTime
-  
-  currencyId     String
-  exchangeRate   Decimal       @db.Decimal(18, 6) @default(1)
-  
-  totalAmount    Decimal       @db.Decimal(18, 2)
-  paidAmount     Decimal       @db.Decimal(18, 2) @default(0)
-  balanceDue     Decimal       @db.Decimal(18, 2) // total - paid
-  
-  status         InvoiceStatus @default(DRAFT)
-  notes          String?
-  
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
 
-  customer       Customer             @relation(fields: [customerId], references: [id])
-  currency       Currency             @relation(fields: [currencyId], references: [id])
-  items          SalesInvoiceItem[]
-  payments       PaymentApplication[] // Links invoice to payments
-  
-  // Accounting Link
-  journalEntryId String?              @unique
-  journalEntry   JournalEntry?        @relation(fields: [journalEntryId], references: [id])
 
-  @@map("sales_invoices")
-}
 
-model SalesInvoiceItem {
-  id        String  @id @default(cuid())
-  invoiceId String
-  productId String
-  quantity  Int
-  unitPrice Decimal @db.Decimal(18, 2)
-  total     Decimal @db.Decimal(18, 2)
-  taxAmount Decimal @db.Decimal(18, 2) @default(0)
-
-  invoice   SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product   Product      @relation(fields: [productId], references: [id])
-
-  @@map("sales_invoice_items")
-}
 
 model CustomerPayment {
   id            String        @id @default(cuid())
@@ -663,4 +620,59 @@ model JournalEntryLine {
   journalEntry   JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
 
   @@map("journal_entry_lines")
+}
+
+// Update this model
+model SalesInvoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  customerId      String
+  date            DateTime
+  dueDate         DateTime
+  
+  // NEW FIELDS FOR COMMERCIAL INVOICE
+  destination     String?       // e.g., "Kano State"
+  loadingLocation String?       @default("Enugu KVTS Industries") 
+  
+  currencyId      String
+  exchangeRate    Decimal       @db.Decimal(18, 6) @default(1)
+  
+  totalAmount     Decimal       @db.Decimal(18, 2)
+  paidAmount      Decimal       @db.Decimal(18, 2) @default(0)
+  balanceDue      Decimal       @db.Decimal(18, 2)
+  
+  status          InvoiceStatus @default(DRAFT)
+  notes           String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  customer        Customer             @relation(fields: [customerId], references: [id])
+  currency        Currency             @relation(fields: [currencyId], references: [id])
+  items           SalesInvoiceItem[]
+  payments        PaymentApplication[]
+  journalEntryId  String?              @unique
+  journalEntry    JournalEntry?        @relation(fields: [journalEntryId], references: [id])
+
+  @@map("sales_invoices")
+}
+
+// Update this model
+model SalesInvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  productId String
+  
+  // NEW FIELD
+  packageType String? // e.g., "Bundle", "Piece", "Set"
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(18, 2)
+  total     Decimal @db.Decimal(18, 2)
+  taxAmount Decimal @db.Decimal(18, 2) @default(0)
+
+  invoice   SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId], references: [id])
+
+  @@map("sales_invoice_items")
 }

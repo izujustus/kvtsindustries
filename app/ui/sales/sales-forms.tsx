@@ -93,8 +93,20 @@ export function InvoiceForm({ customers, products, onClose }: { customers: any[]
          <input name="dueDate" type="date" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
       </div>
 
+      {/* NEW: Logistics Info for Commercial Invoice */}
+      <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-md border border-gray-200">
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase">Location of Loading</label>
+          <input name="loadingLocation" defaultValue="Enugu KVTS Industries" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase">Destination</label>
+          <input name="destination" placeholder="e.g. Kano State" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#E30613] focus:ring-[#E30613]" />
+        </div>
+      </div>
+
       {/* Item Builder */}
-      <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+      <div className="bg-white p-3 rounded-md border border-gray-200">
         <div className="flex gap-2 items-end">
           <div className="flex-1">
             <label className="text-xs font-medium text-gray-500">Product</label>
@@ -123,7 +135,7 @@ export function InvoiceForm({ customers, products, onClose }: { customers: any[]
           {items.map((item, idx) => {
             const pName = products.find(p => p.id === item.productId)?.name;
             return (
-              <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 border rounded">
+              <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 border rounded">
                 <span>{item.quantity} x {pName}</span>
                 <div className="flex items-center gap-3">
                   <span className="font-mono">{(item.quantity * item.unitPrice).toFixed(2)}</span>

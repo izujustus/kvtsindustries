@@ -1,37 +1,92 @@
 import { PrismaClient } from '@prisma/client';
 import { Download, CreditCard, Users, TrendingUp } from 'lucide-react';
-// import SalesClientWrapper from './client-wrapper';
 import SalesClientWrapper from './client-wrapper';
 
 const prisma = new PrismaClient();
 
 export default async function SalesPage() {
-  // 1. Fetch Invoices (Recent 50)
-  const invoices = await prisma.salesInvoice.findMany({
+  // 1. Fetch Raw Invoices
+  const rawInvoices = await prisma.salesInvoice.findMany({
     take: 50,
     orderBy: { createdAt: 'desc' },
-    include: { customer: true }
+    include: { 
+      customer: true,
+      items: { include: { product: true } } 
+    }
   });
 
-  // 2. Fetch Customers (All)
-  const customers = await prisma.customer.findMany({
+  // TRANSFORM INVOICES: Convert all Decimals to Numbers
+  const invoices = rawInvoices.map(inv => ({
+    ...inv,
+    exchangeRate: Number(inv.exchangeRate),
+    totalAmount: Number(inv.totalAmount),
+    paidAmount: Number(inv.paidAmount),
+    balanceDue: Number(inv.balanceDue),
+    // Fix Customer inside Invoice (Nested Decimal)
+    customer: {
+      ...inv.customer,
+      currentBalance: Number(inv.customer.currentBalance),
+      creditLimit: inv.customer.creditLimit ? Number(inv.customer.creditLimit) : 0,
+    },
+    items: inv.items.map(item => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+      total: Number(item.total),
+      taxAmount: Number(item.taxAmount),
+      product: {
+        ...item.product,
+        costPrice: Number(item.product.costPrice),
+        sellingPrice: Number(item.product.sellingPrice),
+      }
+    }))
+  }));
+
+  // 2. Fetch Raw Customers
+  const rawCustomers = await prisma.customer.findMany({
     orderBy: { name: 'asc' }
   });
 
-  // 3. Fetch Products (For invoice creation form)
-  const products = await prisma.product.findMany({
+  // TRANSFORM CUSTOMERS: Convert Decimals to Numbers
+  const customers = rawCustomers.map(c => ({
+    ...c,
+    currentBalance: Number(c.currentBalance), // <--- Fixes the error you saw
+    creditLimit: c.creditLimit ? Number(c.creditLimit) : 0,
+  }));
+
+  // 3. Fetch Raw Products
+  const rawProducts = await prisma.product.findMany({
     where: { type: 'FINISHED_GOOD' }
   });
 
-  // 4. Fetch Unpaid Invoices (For payment form)
-  const unpaidInvoices = await prisma.salesInvoice.findMany({
+  // TRANSFORM PRODUCTS
+  const products = rawProducts.map(p => ({
+    ...p,
+    costPrice: Number(p.costPrice),
+    sellingPrice: Number(p.sellingPrice),
+  }));
+
+  // 4. Fetch Unpaid Invoices (For Payment Form)
+  const rawUnpaidInvoices = await prisma.salesInvoice.findMany({
     where: { status: { not: 'PAID' } },
     include: { customer: true }
   });
 
-  // Stats
-  const totalRevenue = invoices.reduce((sum, i) => sum + Number(i.paidAmount), 0);
-  const outstandingDebt = invoices.reduce((sum, i) => sum + Number(i.balanceDue), 0);
+  // TRANSFORM UNPAID INVOICES
+  const unpaidInvoices = rawUnpaidInvoices.map(inv => ({
+    ...inv,
+    totalAmount: Number(inv.totalAmount),
+    paidAmount: Number(inv.paidAmount),
+    balanceDue: Number(inv.balanceDue),
+    customer: {
+      ...inv.customer,
+      currentBalance: Number(inv.customer.currentBalance),
+      creditLimit: inv.customer.creditLimit ? Number(inv.customer.creditLimit) : 0,
+    }
+  }));
+
+  // Stats Calculation (Safe to use mapped values now)
+  const totalRevenue = invoices.reduce((sum, i) => sum + i.paidAmount, 0);
+  const outstandingDebt = invoices.reduce((sum, i) => sum + i.balanceDue, 0);
 
   return (
     <div className="space-y-6">
