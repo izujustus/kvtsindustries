@@ -270,7 +270,6 @@
 //   );
 // }
 
-
 'use client';
 
 import { useActionState, useState, useEffect } from 'react';
@@ -279,12 +278,11 @@ import { CreditCard, Heart, Save, User, Building } from 'lucide-react';
 import { UploadButton } from "@/utils/uploadthing"; 
 import clsx from 'clsx';
 
-// Shared Styles for Consistency
 const inputClass = "mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#E30613] focus:ring-[#E30613] placeholder-gray-400";
 const labelClass = "block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide";
 
 // ============================================================================
-// 1. EMPLOYEE FORM (TABBED)
+// 1. EMPLOYEE FORM
 // ============================================================================
 export function EmployeeForm({ onClose, departments = [], employee }: { onClose: () => void, departments?: any[], employee?: any }) {
   const actionFn = employee ? updateEmployee : createEmployee;
@@ -292,18 +290,20 @@ export function EmployeeForm({ onClose, departments = [], employee }: { onClose:
   
   const [activeTab, setActiveTab] = useState<'PERSONAL' | 'BANK' | 'JOB'>('PERSONAL');
   
-  // Initialize state with employee data or defaults
+  // STATE
+  // If editing, use existing values. If creating, defaults.
   const [selectedDeptId, setSelectedDeptId] = useState(employee?.departmentId || "");
   const [imageUrl, setImageUrl] = useState(employee?.imageUrl || ""); 
   
-  // Calculate Sub-departments based on selection
-  // Note: We use 'departments' passed from props.
+  // Filter Sub-departments based on selection
   const selectedDept = departments.find(d => d.id === selectedDeptId);
   const subDepartments = selectedDept?.subDepartments || [];
 
   return (
     <form action={action} className="h-[650px] flex flex-col bg-white">
       {employee && <input type="hidden" name="id" value={employee.id} />}
+      
+      {/* HIDDEN INPUT FOR IMAGE URL */}
       <input type="hidden" name="imageUrl" value={imageUrl} />
 
       {/* TABS */}
@@ -313,12 +313,10 @@ export function EmployeeForm({ onClose, departments = [], employee }: { onClose:
         <button type="button" onClick={() => setActiveTab('JOB')} className={clsx("flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors", activeTab === 'JOB' ? "border-[#E30613] text-[#E30613] bg-white" : "border-transparent text-gray-500 hover:text-gray-800")}>Job & Pay</button>
       </div>
 
-      {/* SCROLLABLE FORM CONTENT */}
       <div className="flex-1 overflow-y-auto px-2 pb-4">
         
         {/* --- TAB 1: PERSONAL --- */}
         <div className={clsx("space-y-4", activeTab !== 'PERSONAL' && 'hidden')}>
-            {/* UploadThing Button */}
             <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
                <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center border-2 border-gray-300 overflow-hidden shrink-0">
                  {imageUrl ? (
@@ -332,12 +330,8 @@ export function EmployeeForm({ onClose, departments = [], employee }: { onClose:
                  <div className="flex justify-start">
                     <UploadButton
                         endpoint="imageUploader"
-                        onClientUploadComplete={(res) => {
-                        if (res && res[0]) setImageUrl(res[0].url);
-                        }}
-                        onUploadError={(error: Error) => {
-                        alert(`ERROR! ${error.message}`);
-                        }}
+                        onClientUploadComplete={(res) => { if (res && res[0]) setImageUrl(res[0].url); }}
+                        onUploadError={(error: Error) => { alert(`ERROR! ${error.message}`); }}
                         appearance={{
                         button: { background: '#E30613', color: 'white', fontSize: '12px', padding: '6px 12px' },
                         container: { display: 'flex', justifyContent: 'flex-start' }
@@ -370,7 +364,7 @@ export function EmployeeForm({ onClose, departments = [], employee }: { onClose:
             <div><label className={labelClass}>Nationality</label><input name="nationality" defaultValue={employee?.nationality} className={inputClass} placeholder="e.g. Nigerian" /></div>
         </div>
 
-        {/* --- TAB 2: BANK & EMERGENCY --- */}
+        {/* --- TAB 2: BANK --- */}
         <div className={clsx("space-y-6", activeTab !== 'BANK' && 'hidden')}>
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <h4 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2"><CreditCard className="w-4 h-4"/> Salary Payment Details</h4>
@@ -411,6 +405,7 @@ export function EmployeeForm({ onClose, departments = [], employee }: { onClose:
               </div>
               <div>
                 <label className={labelClass}>Sub-Department</label>
+                {/* Logic to reset subdepartment if department changes */}
                 <select 
                   name="subDepartmentId" 
                   defaultValue={employee?.subDepartmentId || ''} 
@@ -459,9 +454,6 @@ export function EmployeeForm({ onClose, departments = [], employee }: { onClose:
   );
 }
 
-// ============================================================================
-// 2. PAYROLL FORM
-// ============================================================================
 export function PayrollForm({ employees, onClose }: { employees: any[], onClose: () => void }) {
   const [state, action, isPending] = useActionState(createPayroll, undefined);
   const [components, setComponents] = useState<{name: string, amount: number, type: 'EARNING' | 'DEDUCTION'}[]>([]);
@@ -533,9 +525,6 @@ export function PayrollForm({ employees, onClose }: { employees: any[], onClose:
   );
 }
 
-// ============================================================================
-// 3. EMPLOYEE STATUS FORM
-// ============================================================================
 export function EmployeeStatusForm({ employee, onClose }: { employee: any, onClose: () => void }) {
   const [state, action, isPending] = useActionState(updateEmployeeStatus, undefined);
 

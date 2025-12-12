@@ -223,9 +223,14 @@ import { revalidatePath } from 'next/cache';
 const prisma = new PrismaClient();
 
 // --- SCHEMAS ---
+// Fixed: Removed { required_error } object to satisfy TypeScript.
+// We handle the "Required" error by ensuring empty strings hit the .min(1) check.
 const EmployeeSchema = z.object({
   firstName: z.string().min(1, "First Name is required"),
   lastName: z.string().min(1, "Last Name is required"),
+  departmentId: z.string().min(1, "Department is required"),
+  
+  // Optional fields
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -244,7 +249,6 @@ const EmployeeSchema = z.object({
   bankAccountName: z.string().optional().nullable(),
   bankBranch: z.string().optional().nullable(),
 
-  departmentId: z.string().min(1, "Department is required"),
   subDepartmentId: z.string().optional().nullable(),
   position: z.string().optional().nullable(),
   hireDate: z.string().optional().nullable(),
@@ -270,16 +274,26 @@ const PayrollSchema = z.object({
 export async function createEmployee(prevState: any, formData: FormData) {
   const rawData: Record<string, any> = Object.fromEntries(formData.entries());
 
-  // Clean empty strings to null
-  Object.keys(rawData).forEach(key => {
+  // Clean empty strings to null for OPTIONAL fields only.
+  // We leave firstName, lastName, departmentId as "" so Zod .min(1) catches them.
+  const optionalFields = [
+    'email', 'phone', 'address', 'nationality', 'emergencyContactName', 
+    'emergencyContactRelation', 'emergencyContactPhone', 'bankName', 
+    'bankAccountNumber', 'bankAccountName', 'bankBranch', 'subDepartmentId', 
+    'position', 'workSchedule', 'gender', 'employmentType', 'imageUrl',
+    'dateOfBirth', 'hireDate' // Date strings also need to be null if empty
+  ];
+
+  optionalFields.forEach(key => {
     if (rawData[key] === '') rawData[key] = null;
   });
 
   const validated = EmployeeSchema.safeParse(rawData);
   
   if (!validated.success) {
-    const errorMsg = validated.error.issues.map(e => e.message).join(', ');
-    return { message: `Validation Error: ${errorMsg}`, success: false };
+    // Fixed: Use .issues and typed 'e' to satisfy strict TS
+    const errorMsg = validated.error.issues.map((e: any) => e.message).join(', ');
+    return { message: errorMsg, success: false };
   }
   
   const data = validated.data;
@@ -288,7 +302,6 @@ export async function createEmployee(prevState: any, formData: FormData) {
     const count = await prisma.employee.count();
     const employeeNumber = `EMP-${String(count + 1).padStart(3, '0')}`;
     
-    // Fetch Base Currency (Required)
     const currency = await prisma.currency.findFirst({ where: { isBaseCurrency: true } });
     if (!currency) return { message: 'System Error: No Base Currency configured.', success: false };
 
@@ -300,7 +313,7 @@ export async function createEmployee(prevState: any, formData: FormData) {
       email: data.email,
       phone: data.phone,
       address: data.address,
-      imageUrl: data.imageUrl,
+      imageUrl: data.imageUrl, 
       
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
       gender: data.gender ? (data.gender as Gender) : null,
@@ -327,7 +340,6 @@ export async function createEmployee(prevState: any, formData: FormData) {
       department: { connect: { id: data.departmentId } },
     };
 
-    // Only connect subDepartment if it exists
     if (data.subDepartmentId) {
       createData.subDepartment = { connect: { id: data.subDepartmentId } };
     }
@@ -336,7 +348,7 @@ export async function createEmployee(prevState: any, formData: FormData) {
 
   } catch (e: any) {
     console.error("Create Employee Error:", e);
-    if (e.code === 'P2002') return { message: 'Employee with this Email or Number already exists.', success: false };
+    if (e.code === 'P2002') return { message: 'Email or Employee Number already exists.', success: false };
     return { message: 'Database Error: Failed to create employee.', success: false };
   }
 
@@ -352,7 +364,6 @@ export async function updateEmployee(prevState: any, formData: FormData) {
   const rawData: Record<string, any> = Object.fromEntries(formData.entries());
   const updateData: any = {};
 
-  // Fields allowed to update
   const fields = [
     'firstName', 'lastName', 'email', 'phone', 'address', 'nationality',
     'emergencyContactName', 'emergencyContactRelation', 'emergencyContactPhone',
@@ -362,7 +373,6 @@ export async function updateEmployee(prevState: any, formData: FormData) {
 
   fields.forEach(f => {
     const val = rawData[f];
-    // Only update if field is present in formData. Convert empty strings to null.
     if (val !== undefined) updateData[f] = val === '' ? null : val;
   });
 
@@ -373,26 +383,24 @@ export async function updateEmployee(prevState: any, formData: FormData) {
   if (rawData.gender !== undefined) updateData.gender = rawData.gender === '' ? null : rawData.gender;
   if (rawData.employmentType !== undefined) updateData.employmentType = rawData.employmentType;
 
-  // Prevent nulling required fields if they are sent as empty strings
+  // Prevent nulling required fields
   if (!updateData.firstName) delete updateData.firstName;
   if (!updateData.lastName) delete updateData.lastName;
 
   // --- RELATION HANDLING ---
-  // We must destructure IDs and use `connect` logic
   const { departmentId, subDepartmentId, ...scalarData } = updateData;
   const prismaUpdateData = { ...scalarData };
 
-  // 1. Department (Required Relation)
+  // 1. Department
   if (departmentId) {
     prismaUpdateData.department = { connect: { id: departmentId } };
   }
 
-  // 2. SubDepartment (Optional Relation)
+  // 2. SubDepartment
   if (subDepartmentId !== undefined) {
     if (subDepartmentId) {
       prismaUpdateData.subDepartment = { connect: { id: subDepartmentId } };
     } else {
-      // Explicitly disconnect if user selects "None" or sends empty value
       prismaUpdateData.subDepartment = { disconnect: true };
     }
   }
