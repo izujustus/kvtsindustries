@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",
+    "@uploadthing/react": "^7.3.3",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "lucide-react": "^0.559.0",
@@ -24,6 +25,7 @@
     "react-dom": "19.2.1",
     "react-to-print": "^3.2.0",
     "recharts": "^3.5.1",
+    "uploadthing": "^7.7.4",
     "use-debounce": "^10.0.6",
     "zod": "^4.1.13"
   },
