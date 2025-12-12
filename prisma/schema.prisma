@@ -947,6 +947,7 @@ model Employee {
   email          String?  @unique
   phone          String?
   address        String?  @db.Text
+  imageUrl       String?
   
   // -- 2. Personal Information (NEW) --
   dateOfBirth    DateTime?
