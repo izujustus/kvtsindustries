@@ -1,10 +1,11 @@
 
+
 // generator client {
 //   provider = "prisma-client-js"
 // }
 
 // datasource db {
-//   provider = "postgresql" // or "mysql" if you are using MySQL
+//   provider = "postgresql"
 //   url      = env("DATABASE_URL")
 // }
 
@@ -62,11 +63,20 @@
 
 // enum InvoiceStatus {
 //   DRAFT
+//   PENDING_CONFIRMATION 
+//   CONFIRMED            
 //   SENT
 //   PARTIALLY_PAID
 //   PAID
 //   OVERDUE
 //   VOID
+// }
+
+// enum ProformaStatus {
+//   DRAFT
+//   SENT
+//   CONVERTED_TO_INVOICE
+//   EXPIRED
 // }
 
 // enum PaymentMethod {
@@ -97,7 +107,7 @@
 //   UNITS_OF_PRODUCTION
 // }
 
-// // --- NEW HR ENUMS ---
+// // --- HR ENUMS ---
 // enum EmployeeStatus {
 //   ACTIVE
 //   SUSPENDED
@@ -141,6 +151,8 @@
 //   journalEntries    JournalEntry[]     @relation("EntryCreator")
 //   announcements     Announcement[]
 //   productionReports ProductionReport[] @relation("ReportCreator")
+  
+//   createdProformas  ProformaInvoice[]  @relation("ProformaCreator")
 
 //   @@map("users")
 // }
@@ -156,12 +168,15 @@
 //   updatedAt      DateTime     @updatedAt
 
 //   // RELATIONS
-//   exchangeRates ExchangeRate[]
-//   invoices      SalesInvoice[]
-//   payments      CustomerPayment[]
-//   expenses      Expense[]
-//   employees     Employee[]
-//   payrolls      Payroll[]
+//   exchangeRates    ExchangeRate[]
+//   invoices         SalesInvoice[]
+//   payments         CustomerPayment[]
+//   expenses         Expense[]
+//   employees        Employee[]
+//   payrolls         Payroll[]
+  
+//   supplierPayments SupplierPayment[]
+//   proformas        ProformaInvoice[]
 
 //   @@map("currencies")
 // }
@@ -179,14 +194,14 @@
 // }
 
 // // ============================================================================
-// // 2. HR & PAYROLL MANAGEMENT (UPDATED)
+// // 2. HR & PAYROLL MANAGEMENT
 // // ============================================================================
 
 // model Employee {
 //   id             String   @id @default(cuid())
   
 //   // -- 1. Basic Identification --
-//   employeeNumber String   @unique // e.g., EMP-001
+//   employeeNumber String   @unique 
 //   firstName      String
 //   lastName       String
 //   email          String?  @unique
@@ -194,21 +209,21 @@
 //   address        String?  @db.Text
 //   imageUrl       String?
   
-//   // -- 2. Personal Information (NEW) --
+//   // -- 2. Personal Information --
 //   dateOfBirth    DateTime?
 //   gender         Gender?
 //   nationality    String?
   
-//   // -- 3. Emergency Contact (NEW) --
+//   // -- 3. Emergency Contact --
 //   emergencyContactName     String?
-//   emergencyContactRelation String? // e.g. Spouse, Father
+//   emergencyContactRelation String? 
 //   emergencyContactPhone    String?
 
-//   // -- 4. Bank Details (NEW - For Salary) --
+//   // -- 4. Bank Details --
 //   bankName          String?
 //   bankAccountNumber String?
 //   bankAccountName   String?
-//   bankBranch        String? // Optional Branch/Sort Code
+//   bankBranch        String? 
 
 //   // -- 5. Job Details --
 //   position        String
@@ -216,9 +231,9 @@
 //   subDepartmentId String?
 //   hireDate        DateTime
   
-//   // Employment Meta (NEW)
+//   // Employment Meta 
 //   employmentType  EmploymentType @default(FULL_TIME)
-//   workSchedule    String?        // e.g. "Mon-Fri, 9am-5pm"
+//   workSchedule    String?        
 //   status          EmployeeStatus @default(ACTIVE)
   
 //   // -- 6. Compensation --
@@ -312,7 +327,7 @@
 // model PayrollComponent {
 //   id        String  @id @default(cuid())
 //   payrollId String
-//   name      String  // e.g., "Overtime", "Tax"
+//   name      String  
 //   type      String  // EARNING, DEDUCTION
 //   amount    Decimal @db.Decimal(18, 2)
   
@@ -393,6 +408,19 @@
 // // 4. PRODUCTION & INVENTORY
 // // ============================================================================
 
+// model ProductCategory {
+//   id          String    @id @default(cuid())
+//   name        String    @unique 
+//   description String?   @db.Text
+  
+//   createdAt   DateTime  @default(now())
+//   updatedAt   DateTime  @updatedAt
+
+//   products    Product[]
+
+//   @@map("product_categories")
+// }
+
 // model Product {
 //   id           String      @id @default(cuid())
 //   code         String      @unique 
@@ -402,6 +430,14 @@
 //   brand        String?
 //   description  String?
   
+//   // Link to Dynamic Category
+//   categoryId   String?     
+//   category     ProductCategory? @relation(fields: [categoryId], references: [id])
+
+//   // [UPDATED] Link to Supplier (Fixed Error here)
+//   supplierId   String?
+//   supplier     Supplier?        @relation(fields: [supplierId], references: [id])
+
 //   // Inventory
 //   stockOnHand  Int         @default(0)
 //   reorderLevel Int         @default(10)
@@ -418,12 +454,14 @@
 //   invoiceItems       SalesInvoiceItem[]
 //   poItems            PurchaseOrderItem[]
 //   productionReports  ProductionReport[]
+//   proformaItems      ProformaInvoiceItem[]
   
 //   // BOM
 //   bomParent          BillOfMaterial[]    @relation("BOMParent")
 //   bomChild           BillOfMaterial[]    @relation("BOMComponent")
 
 //   @@map("products")
+//   productionOrders ProductionOrder[]
 // }
 
 // model BillOfMaterial {
@@ -510,6 +548,7 @@
 
 //   invoices       SalesInvoice[]
 //   payments       CustomerPayment[]
+//   proformas      ProformaInvoice[]
 
 //   @@map("customers")
 // }
@@ -563,8 +602,35 @@
 //   purchaseOrders PurchaseOrder[]
 //   assets         Asset[]
 //   expenses       Expense[]
+  
+//   // [NEW] Supplier Relations (Fixed Error here)
+//   payments       SupplierPayment[]
+//   products       Product[]
 
 //   @@map("suppliers")
+// }
+
+// model SupplierPayment {
+//   id            String         @id @default(cuid())
+//   paymentNumber String         @unique 
+//   supplierId    String
+//   date          DateTime       @default(now())
+  
+//   amount        Decimal        @db.Decimal(18, 2)
+  
+//   method        PaymentMethod
+//   reference     String?        
+//   currencyId    String
+  
+//   notes         String?        @db.Text
+  
+//   createdAt     DateTime       @default(now())
+//   updatedAt     DateTime       @updatedAt
+
+//   supplier      Supplier       @relation(fields: [supplierId], references: [id])
+//   currency      Currency       @relation(fields: [currencyId], references: [id])
+
+//   @@map("supplier_payments")
 // }
 
 // model PurchaseOrder {
@@ -694,12 +760,12 @@
 // }
 
 // // ============================================================================
-// // 9. SALES INVOICING
+// // 9. SALES INVOICING & PROFORMA
 // // ============================================================================
 
 // model SalesInvoice {
 //   id              String        @id @default(cuid())
-//   invoiceNumber   String        @unique
+//   invoiceNumber   String?        @unique
 //   customerId      String
 //   date            DateTime
 //   dueDate         DateTime
@@ -709,6 +775,10 @@
   
 //   currencyId      String
 //   exchangeRate    Decimal       @db.Decimal(18, 6) @default(1)
+
+//   isPosted        Boolean       @default(false) 
+
+//   status          InvoiceStatus @default(DRAFT)
   
 //   // Tax & Logistics
 //   subTotal        Decimal       @db.Decimal(18, 2) @default(0)
@@ -720,7 +790,7 @@
 //   paidAmount      Decimal       @db.Decimal(18, 2) @default(0)
 //   balanceDue      Decimal       @db.Decimal(18, 2)
   
-//   status          InvoiceStatus @default(DRAFT)
+  
 //   notes           String?
   
 //   createdAt       DateTime      @default(now())
@@ -732,6 +802,11 @@
 //   payments        PaymentApplication[]
 //   journalEntryId  String?              @unique
 //   journalEntry    JournalEntry?        @relation(fields: [journalEntryId], references: [id])
+  
+//   fromProformaId  String?
+//   fromProforma    ProformaInvoice?     @relation(fields: [fromProformaId], references: [id])
+
+//   waybill         Waybill?
 
 //   @@map("sales_invoices")
 // }
@@ -752,6 +827,78 @@
 //   product   Product      @relation(fields: [productId], references: [id])
 
 //   @@map("sales_invoice_items")
+// }
+
+// model Waybill {
+//   id              String       @id @default(cuid())
+//   salesInvoiceId  String       @unique
+
+//   // 3. The "Gate Pass" details
+//   waybillNumber   String       @unique // e.g., WB-2025-001
+//   gatePassCode    String?      // A short code (e.g., A7X-99) for security to radio in
+  
+ 
+//   dispatchDate    DateTime     @default(now())
+  
+//   vehicleNumber   String?
+//   driverName      String?
+//   driverPhone     String?
+  
+//   preparedBy      String?      // Staff Name
+//   securityCheckBy String?      // Gate Security Name
+  
+//   createdAt       DateTime     @default(now())
+//   updatedAt       DateTime     @updatedAt
+
+//   salesInvoice    SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Cascade)
+
+//   @@map("waybills")
+// }
+
+// model ProformaInvoice {
+//   id              String         @id @default(cuid())
+//   proformaNumber  String         @unique
+//   customerId      String
+//   date            DateTime       @default(now())
+//   expiryDate      DateTime?
+  
+//   currencyId      String
+  
+//   subTotal        Decimal        @db.Decimal(18, 2) @default(0)
+//   taxAmount       Decimal        @db.Decimal(18, 2) @default(0)
+//   totalAmount     Decimal        @db.Decimal(18, 2)
+  
+//   status          ProformaStatus @default(DRAFT)
+//   notes           String?        @db.Text
+  
+//   createdById     String
+//   createdAt       DateTime       @default(now())
+//   updatedAt       DateTime       @updatedAt
+
+//   customer        Customer              @relation(fields: [customerId], references: [id])
+//   currency        Currency              @relation(fields: [currencyId], references: [id])
+//   creator         User                  @relation("ProformaCreator", fields: [createdById], references: [id])
+//   items           ProformaInvoiceItem[]
+  
+//   convertedInvoices SalesInvoice[]
+
+//   @@map("proforma_invoices")
+// }
+
+// model ProformaInvoiceItem {
+//   id                String          @id @default(cuid())
+//   proformaInvoiceId String
+//   productId         String
+  
+//   description       String?         
+//   quantity          Int
+//   unitPrice         Decimal         @db.Decimal(18, 2)
+//   total             Decimal         @db.Decimal(18, 2)
+
+//   proformaInvoice   ProformaInvoice @relation(fields: [proformaInvoiceId], references: [id], onDelete: Cascade)
+//   product           Product         @relation(fields: [productId], references: [id])
+
+//   @@map("proforma_invoice_items")
 // }
 
 // // ============================================================================
@@ -787,6 +934,42 @@
 
 //   @@map("announcements")
 // }
+
+// // --- ADD THIS ENUM ---
+// enum OrderStatus {
+//   DRAFT
+//   PLANNED
+//   IN_PROGRESS
+//   COMPLETED
+//   CANCELLED
+// }
+
+// // --- ADD THIS MODEL ---
+// model ProductionOrder {
+//   id            String      @id @default(cuid())
+//   orderNumber   String      @unique // e.g. WO-2025-001
+  
+//   productId     String
+//   product       Product     @relation(fields: [productId], references: [id])
+  
+//   quantity      Int         // Target Quantity
+//   producedQty   Int         @default(0) // Actual produced so far
+  
+//   status        OrderStatus @default(DRAFT)
+//   priority      String      @default("NORMAL") // LOW, NORMAL, HIGH
+  
+//   startDate     DateTime    @default(now())
+//   dueDate       DateTime?
+  
+//   notes         String?     @db.Text
+  
+//   createdAt     DateTime    @default(now())
+//   updatedAt     DateTime    @updatedAt
+
+//   @@map("production_orders")
+// }
+
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -1221,7 +1404,7 @@ model Product {
   categoryId   String?     
   category     ProductCategory? @relation(fields: [categoryId], references: [id])
 
-  // [UPDATED] Link to Supplier (Fixed Error here)
+  // Link to Supplier
   supplierId   String?
   supplier     Supplier?        @relation(fields: [supplierId], references: [id])
 
@@ -1246,9 +1429,10 @@ model Product {
   // BOM
   bomParent          BillOfMaterial[]    @relation("BOMParent")
   bomChild           BillOfMaterial[]    @relation("BOMComponent")
+  
+  productionOrders   ProductionOrder[]
 
   @@map("products")
-  productionOrders ProductionOrder[]
 }
 
 model BillOfMaterial {
@@ -1390,7 +1574,7 @@ model Supplier {
   assets         Asset[]
   expenses       Expense[]
   
-  // [NEW] Supplier Relations (Fixed Error here)
+  // Supplier Relations
   payments       SupplierPayment[]
   products       Product[]
 
@@ -1409,6 +1593,10 @@ model SupplierPayment {
   reference     String?        
   currencyId    String
   
+  // NEW: Link to PO
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  
   notes         String?        @db.Text
   
   createdAt     DateTime       @default(now())
@@ -1416,6 +1604,9 @@ model SupplierPayment {
 
   supplier      Supplier       @relation(fields: [supplierId], references: [id])
   currency      Currency       @relation(fields: [currencyId], references: [id])
+  
+  // Implicit relation to items (left as requested)
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@map("supplier_payments")
 }
@@ -1426,13 +1617,19 @@ model PurchaseOrder {
   supplierId  String
   date        DateTime @default(now())
   status      String   @default("DRAFT")
+
+  // --- NEW FIELDS ---
+  paidAmount    Decimal   @db.Decimal(18, 2) @default(0)
+  paymentStatus String    @default("UNPAID") // UNPAID, PARTIAL, PAID
   
   totalAmount Decimal  @db.Decimal(18, 2)
   createdById String
   
+  // --- RELATIONS ---
   supplier    Supplier            @relation(fields: [supplierId], references: [id])
   creator     User                @relation("POCreator", fields: [createdById], references: [id])
   items       PurchaseOrderItem[]
+  payments    SupplierPayment[]
 
   @@map("purchase_orders")
 }
@@ -1444,6 +1641,12 @@ model PurchaseOrderItem {
   quantity        Int
   unitCost        Decimal @db.Decimal(18, 2)
   total           Decimal @db.Decimal(18, 2)
+  
+  paidAmount    Decimal   @db.Decimal(18, 2) @default(0)
+  paymentStatus String    @default("UNPAID")
+
+  // Link to Payments
+  payments      SupplierPayment[]
 
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product         Product       @relation(fields: [productId], references: [id])
@@ -1552,7 +1755,7 @@ model JournalEntryLine {
 
 model SalesInvoice {
   id              String        @id @default(cuid())
-  invoiceNumber   String?        @unique
+  invoiceNumber   String?       @unique
   customerId      String
   date            DateTime
   dueDate         DateTime
@@ -1576,7 +1779,6 @@ model SalesInvoice {
   totalAmount     Decimal       @db.Decimal(18, 2)
   paidAmount      Decimal       @db.Decimal(18, 2) @default(0)
   balanceDue      Decimal       @db.Decimal(18, 2)
-  
   
   notes           String?
   
@@ -1620,19 +1822,17 @@ model Waybill {
   id              String       @id @default(cuid())
   salesInvoiceId  String       @unique
 
-  // 3. The "Gate Pass" details
-  waybillNumber   String       @unique // e.g., WB-2025-001
-  gatePassCode    String?      // A short code (e.g., A7X-99) for security to radio in
+  waybillNumber   String       @unique 
+  gatePassCode    String?      
   
- 
   dispatchDate    DateTime     @default(now())
   
   vehicleNumber   String?
   driverName      String?
   driverPhone     String?
   
-  preparedBy      String?      // Staff Name
-  securityCheckBy String?      // Gate Security Name
+  preparedBy      String?      
+  securityCheckBy String?      
   
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -1722,7 +1922,6 @@ model Announcement {
   @@map("announcements")
 }
 
-// --- ADD THIS ENUM ---
 enum OrderStatus {
   DRAFT
   PLANNED
@@ -1731,19 +1930,18 @@ enum OrderStatus {
   CANCELLED
 }
 
-// --- ADD THIS MODEL ---
 model ProductionOrder {
   id            String      @id @default(cuid())
-  orderNumber   String      @unique // e.g. WO-2025-001
+  orderNumber   String      @unique 
   
   productId     String
   product       Product     @relation(fields: [productId], references: [id])
   
-  quantity      Int         // Target Quantity
-  producedQty   Int         @default(0) // Actual produced so far
+  quantity      Int         
+  producedQty   Int         @default(0) 
   
   status        OrderStatus @default(DRAFT)
-  priority      String      @default("NORMAL") // LOW, NORMAL, HIGH
+  priority      String      @default("NORMAL") 
   
   startDate     DateTime    @default(now())
   dueDate       DateTime?
@@ -1755,4 +1953,3 @@ model ProductionOrder {
 
   @@map("production_orders")
 }
-

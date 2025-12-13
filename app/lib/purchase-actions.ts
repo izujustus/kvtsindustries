@@ -8,9 +8,9 @@ const prisma = new PrismaClient();
 
 // --- SCHEMAS ---
 const ItemSchema = z.object({
-  productId: z.string().min(1, "Product is required"),
-  quantity: z.coerce.number().min(1),
-  unitCost: z.coerce.number().min(0),
+  productId: z.string().min(1, "Product selection is required"), // Specific error
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+  unitCost: z.coerce.number().min(0, "Cost cannot be negative"),
 });
 
 const POSchema = z.object({
@@ -20,7 +20,7 @@ const POSchema = z.object({
   notes: z.string().optional(),
 });
 
-// 1. GENERATE PO NUMBER (PO-YYMM-XXX)
+// 1. GENERATE PO NUMBER
 async function generatePONumber() {
   const date = new Date();
   const prefix = `PO-${date.getFullYear().toString().slice(-2)}${String(date.getMonth()+1).padStart(2, '0')}`;
@@ -30,9 +30,21 @@ async function generatePONumber() {
 
 // 2. CREATE PURCHASE ORDER
 export async function createPurchaseOrder(prevState: any, formData: FormData) {
-  // Fix: Correctly parse the JSON string from the hidden input
   const rawItems = formData.get('items');
-  const itemsParsed = typeof rawItems === 'string' ? JSON.parse(rawItems) : [];
+  // [FIX] Handle potential JSON parse errors
+  let itemsParsed = [];
+  try {
+    itemsParsed = typeof rawItems === 'string' ? JSON.parse(rawItems) : [];
+  } catch (e) {
+    return { success: false, message: 'System Error: Invalid items format.' };
+  }
+
+  // [FIX] Filter out empty rows (This solves "Validation Failed" if you have an empty row)
+  itemsParsed = itemsParsed.filter((i: any) => i.productId && i.productId !== '');
+
+  if (itemsParsed.length === 0) {
+    return { success: false, message: 'Please add at least one valid product.' };
+  }
 
   const rawData = {
     supplierId: formData.get('supplierId'),
@@ -43,22 +55,20 @@ export async function createPurchaseOrder(prevState: any, formData: FormData) {
 
   const validated = POSchema.safeParse(rawData);
   
+  // [FIX] Detailed Error Reporting
   if (!validated.success) {
-    console.error("Validation Errors:", validated.error.flatten().fieldErrors);
-    return { message: 'Validation Failed. Check inputs.', errors: validated.error.flatten().fieldErrors };
+    const firstError = Object.values(validated.error.flatten().fieldErrors)[0]?.[0];
+    const itemError = Object.values(validated.error.flatten().fieldErrors.items || {})[0];
+    return { success: false, message: `Validation Failed: ${firstError || itemError || 'Check inputs'}` };
   }
 
   const { supplierId, date, items, notes } = validated.data;
-
-  // Calculate Total
   const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
 
   try {
     const poNumber = await generatePONumber();
-
-    // Fetch a system user to link createdById (Prevents crash if auth missing)
     const systemUser = await prisma.user.findFirst(); 
-    if(!systemUser) return { success: false, message: 'System Error: No valid user found in database.' };
+    if(!systemUser) return { success: false, message: 'System Error: No valid user found.' };
 
     await prisma.purchaseOrder.create({
       data: {
@@ -66,6 +76,8 @@ export async function createPurchaseOrder(prevState: any, formData: FormData) {
         supplierId,
         date: new Date(date),
         status: 'SENT', 
+        paymentStatus: 'UNPAID', // New Field
+        paidAmount: 0,           // New Field
         totalAmount,
         createdById: systemUser.id, 
         notes: notes || '',
@@ -81,14 +93,14 @@ export async function createPurchaseOrder(prevState: any, formData: FormData) {
     });
 
     revalidatePath('/dashboard/purchases');
-    return { success: true, message: 'Purchase Order Created' };
+    return { success: true, message: 'Purchase Order Created Successfully' };
   } catch (e) {
     console.error(e);
     return { success: false, message: 'Database Error: Could not create order.' };
   }
 }
 
-// 3. RECEIVE GOODS (The "Supply" Trigger)
+// 3. RECEIVE GOODS
 export async function receivePurchaseOrder(orderId: string) {
   try {
     const order = await prisma.purchaseOrder.findUnique({
@@ -100,9 +112,8 @@ export async function receivePurchaseOrder(orderId: string) {
     if (order.status === 'RECEIVED') return { success: false, message: 'Already received' };
 
     await prisma.$transaction(async (tx) => {
-      // A. Update Inventory (Add Stock)
+      // 1. Update Inventory
       for (const item of order.items) {
-        // 1. Create Movement Record
         await tx.inventoryMovement.create({
           data: {
             productId: item.productId,
@@ -112,24 +123,19 @@ export async function receivePurchaseOrder(orderId: string) {
             date: new Date(),
           }
         });
-
-        // 2. Update Product Stock
         await tx.product.update({
           where: { id: item.productId },
-          data: { 
-            stockOnHand: { increment: item.quantity },
-            // Optional: Update cost price here if needed
-          }
+          data: { stockOnHand: { increment: item.quantity } }
         });
       }
 
-      // B. Update Supplier Balance
+      // 2. Update Supplier Balance
       await tx.supplier.update({
         where: { id: order.supplierId },
         data: { balance: { increment: order.totalAmount } }
       });
 
-      // C. Mark PO as Received
+      // 3. Update PO Status
       await tx.purchaseOrder.update({
         where: { id: orderId },
         data: { status: 'RECEIVED' }
@@ -137,9 +143,8 @@ export async function receivePurchaseOrder(orderId: string) {
     });
 
     revalidatePath('/dashboard/purchases');
-    return { success: true, message: 'Goods Received & Inventory Updated' };
+    return { success: true, message: 'Goods Received & Stock Updated' };
   } catch (e) {
-    console.error(e);
     return { success: false, message: 'Failed to receive goods' };
   }
 }
@@ -149,11 +154,71 @@ export async function deletePurchaseOrder(id: string) {
   try {
     const po = await prisma.purchaseOrder.findUnique({ where: { id } });
     if (po?.status === 'RECEIVED') return { success: false, message: 'Cannot delete received orders.' };
-
     await prisma.purchaseOrder.delete({ where: { id } });
     revalidatePath('/dashboard/purchases');
     return { success: true, message: 'Order Deleted' };
   } catch (e) {
     return { success: false, message: 'Failed to delete' };
+  }
+}
+
+// 5. [NEW] PAY SUPPLIER (Link Payment to Order)
+export async function paySupplierOrder(prevState: any, formData: FormData) {
+  const orderId = formData.get('orderId') as string;
+  const amount = Number(formData.get('amount'));
+  const method = formData.get('method') as any;
+  const notes = formData.get('notes') as string;
+
+  if (!amount || amount <= 0) return { success: false, message: 'Invalid Amount' };
+
+  try {
+    const order = await prisma.purchaseOrder.findUnique({ where: { id: orderId } });
+    if (!order) return { success: false, message: 'Order not found' };
+
+    // Calculate New Status
+    const newPaidAmount = Number(order.paidAmount) + amount;
+    const isPaid = newPaidAmount >= Number(order.totalAmount);
+    const newStatus = isPaid ? 'PAID' : 'PARTIAL';
+
+    // Get Base Currency
+    const currency = await prisma.currency.findFirst({ where: { isBaseCurrency: true } });
+    if(!currency) throw new Error("No Base Currency");
+
+    await prisma.$transaction(async (tx) => {
+        // 1. Create Payment Record linked to PO
+        await tx.supplierPayment.create({
+            data: {
+                paymentNumber: `SP-${Date.now().toString().slice(-6)}`,
+                supplierId: order.supplierId,
+                purchaseOrderId: order.id, // LINKED HERE
+                amount: amount,
+                method: method,
+                currencyId: currency.id,
+                date: new Date(),
+                notes: notes
+            }
+        });
+
+        // 2. Update PO Financials
+        await tx.purchaseOrder.update({
+            where: { id: order.id },
+            data: { 
+                paidAmount: { increment: amount },
+                paymentStatus: newStatus
+            }
+        });
+
+        // 3. Reduce Supplier Balance (Ledger)
+        await tx.supplier.update({
+            where: { id: order.supplierId },
+            data: { balance: { decrement: amount } }
+        });
+    });
+
+    revalidatePath('/dashboard/purchases');
+    return { success: true, message: 'Payment Recorded Successfully' };
+  } catch (e) {
+    console.error(e);
+    return { success: false, message: 'Payment Failed' };
   }
 }
