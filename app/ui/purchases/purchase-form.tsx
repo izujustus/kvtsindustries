@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState, useRef } from 'react';
+import { useActionState, useEffect, useState, useMemo } from 'react'; // Added useMemo
 import { createPurchaseOrder } from '@/app/lib/purchase-actions';
 import { Loader2, Plus, Trash, AlertCircle, Search, X } from 'lucide-react';
 import clsx from 'clsx';
@@ -16,13 +16,18 @@ export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers:
   // FORM STATE
   const [items, setItems] = useState<Item[]>([{ productId: '', quantity: 1, unitCost: 0 }]);
   const [total, setTotal] = useState(0);
-  
-  // [FIX] Track Supplier in State to guarantee it sends
   const [supplierId, setSupplierId] = useState('');
 
   // SEARCH STATE
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
+
+  // [FIX] Filter Valid Suppliers & Debug
+  // This ensures we only render options that have a valid ID.
+  const validSuppliers = useMemo(() => {
+    console.log("Raw Suppliers Data:", suppliers); // Check your console (F12) to see this
+    return suppliers.filter(s => s && s.id && s.name);
+  }, [suppliers]);
 
   // Auto-calculate Total
   useEffect(() => {
@@ -50,7 +55,6 @@ export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers:
 
   return (
     <form action={action} className="space-y-6 h-[80vh] flex flex-col">
-      {/* [FIX] Hidden Inputs to ensure data is sent exactly as captured in state */}
       <input type="hidden" name="items" value={JSON.stringify(items)} />
       <input type="hidden" name="supplierId" value={supplierId} /> 
       
@@ -61,19 +65,29 @@ export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers:
             <div>
               <label className={LABEL_CLASS}>Supplier</label>
               <select 
-                // [FIX] Controlled Component
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
                 required 
                 className={INPUT_CLASS}
               >
                   <option value="">-- Select Supplier --</option>
-                  {suppliers.length > 0 ? (
-                    suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                  {validSuppliers.length > 0 ? (
+                    validSuppliers.map(s => (
+                      // [FIX] Ensured key and value are definitely the ID
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))
                   ) : (
-                    <option disabled>No Suppliers Found</option>
+                    <option disabled>No Valid Suppliers Found</option>
                   )}
               </select>
+              {/* Debug Tip for User */}
+              {validSuppliers.length < suppliers.length && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  * Some suppliers were hidden due to missing IDs. Check Database.
+                </p>
+              )}
             </div>
             <div>
               <label className={LABEL_CLASS}>Order Date</label>

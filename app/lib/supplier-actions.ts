@@ -7,7 +7,6 @@ import { revalidatePath } from 'next/cache';
 const prisma = new PrismaClient();
 
 // --- SCHEMAS ---
-
 const CategorySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required"),
@@ -17,7 +16,7 @@ const CategorySchema = z.object({
 const SupplierSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required"),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().optional().or(z.literal('')),
   phone: z.string().optional(),
 });
 
@@ -73,35 +72,58 @@ export async function deleteCategory(id: string) {
 }
 
 // ============================================================================
-// 2. SUPPLIER ACTIONS
+// 2. SUPPLIER ACTIONS (FIXED)
 // ============================================================================
 
 export async function saveSupplier(prevState: any, formData: FormData) {
+  const rawId = formData.get('id');
+  
   const data = {
-    id: formData.get('id'),
+    // Only pass ID if it's a non-empty string
+    id: (typeof rawId === 'string' && rawId.length > 0) ? rawId : undefined,
     name: formData.get('name'),
     email: formData.get('email'),
     phone: formData.get('phone'),
   };
 
   const validated = SupplierSchema.safeParse(data);
-  if (!validated.success) return { message: 'Invalid Input', errors: validated.error.flatten().fieldErrors };
+  
+  if (!validated.success) {
+    console.error(validated.error.flatten().fieldErrors);
+    return { message: 'Invalid Input', errors: validated.error.flatten().fieldErrors };
+  }
 
   try {
     if (data.id) {
+      // UPDATE
       await prisma.supplier.update({
-        where: { id: data.id as string },
-        data: validated.data
+        where: { id: data.id },
+        data: {
+            name: validated.data.name,
+            email: validated.data.email,
+            phone: validated.data.phone
+        }
       });
     } else {
+      // CREATE
+      // We do NOT pass 'id' here; Prisma CUID default handles it.
       await prisma.supplier.create({
-        data: validated.data
+        data: {
+            name: validated.data.name,
+            email: validated.data.email,
+            phone: validated.data.phone
+        }
       });
     }
+    
     revalidatePath('/dashboard/suppliers');
+    // Also revalidate purchases in case the dropdown needs refresh
+    revalidatePath('/dashboard/purchases'); 
+    
     return { success: true, message: 'Supplier Saved' };
   } catch (e) {
-    return { success: false, message: 'Database Error' };
+    console.error("Database Error:", e);
+    return { success: false, message: 'Database Error: Failed to save supplier.' };
   }
 }
 
@@ -133,14 +155,12 @@ export async function recordSupplierPayment(prevState: any, formData: FormData) 
 
   const { supplierId, amount, currencyId, method, reference, notes } = validated.data;
   
-  // Generate Payment Number (SP-YYMM-XXXX)
   const dateStr = new Date().toISOString().slice(2, 7).replace('-', '');
   const random = Math.floor(1000 + Math.random() * 9000);
   const paymentNumber = `SP-${dateStr}-${random}`;
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1. Create Payment Record
       await tx.supplierPayment.create({
         data: {
           paymentNumber,
@@ -153,8 +173,6 @@ export async function recordSupplierPayment(prevState: any, formData: FormData) 
         }
       });
 
-      // 2. Update Supplier Balance (Decrease what we owe them)
-      // Assuming 'balance' represents debt to supplier. Payment reduces debt.
       await tx.supplier.update({
         where: { id: supplierId },
         data: {
