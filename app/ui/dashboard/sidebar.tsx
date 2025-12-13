@@ -304,7 +304,7 @@ const navItems: NavItem[] = [
     roles: ['SUPER_ADMIN', 'ADMIN', 'HR'],
     subItems: [
       { name: 'Employees', href: '/dashboard/hr', roles: ['ALL'] },
-      { name: 'Payroll', href: '/dashboard/hr/payroll', roles: ['ALL'] },
+      // { name: 'Payroll', href: '/dashboard/hr/payroll', roles: ['ALL'] },
     ]
   },
   

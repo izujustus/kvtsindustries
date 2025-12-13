@@ -115,7 +115,6 @@
 //   .finally(async () => {
 //     await prisma.$disconnect()
 //   })
-
 import { PrismaClient, Role } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 
@@ -124,34 +123,57 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🔥 Wiping Database Clean...')
 
-  // 1. DELETE EVERYTHING (Order Matters! Delete Children first, then Parents)
-  // This ensures we don't hit Foreign Key constraints errors.
+  // ====================================================================
+  // 1. DELETE EVERYTHING (Order Matters! Delete Children first)
+  // ====================================================================
   
-  // Level 1: Deepest Children (Depend on others)
-  await prisma.announcement.deleteMany()
-  await prisma.payroll.deleteMany()
-  await prisma.assetMaintenance.deleteMany()
+  // Level 1: Deepest Children (Items, Lines, Movements)
+  await prisma.purchaseOrderItem.deleteMany()
+  await prisma.proformaInvoiceItem.deleteMany()
+  await prisma.salesInvoiceItem.deleteMany()
+  await prisma.inventoryMovement.deleteMany()
+  await prisma.billOfMaterial.deleteMany()
   await prisma.productionDefect.deleteMany()
-  await prisma.inventoryMovement.deleteMany() // Links to Products/Invoices
-  await prisma.salesInvoiceItem.deleteMany()  // Links to Products/Invoices
-  await prisma.paymentApplication.deleteMany() // Links to Payments/Invoices
-  await prisma.journalEntryLine.deleteMany()   // Links to Journal/Accounts
+  await prisma.assetMaintenance.deleteMany()
+  await prisma.payrollComponent.deleteMany()
+  await prisma.journalEntryLine.deleteMany()
+  await prisma.paymentApplication.deleteMany()
+  await prisma.exchangeRate.deleteMany()
+  await prisma.employeeStatusLog.deleteMany()
 
-  // Level 2: Transactional Tables
-  await prisma.asset.deleteMany()
+  // Level 2: Transactional Documents (Invoices, Orders, Payments)
+  await prisma.waybill.deleteMany()          // Must delete before Invoice
+  await prisma.supplierPayment.deleteMany()  // Must delete before PO/Supplier
   await prisma.customerPayment.deleteMany()
-  await prisma.salesInvoice.deleteMany()
-  await prisma.productionReport.deleteMany()
-  await prisma.expense.deleteMany()
-  await prisma.journalEntry.deleteMany()
-
-  // Level 3: Master Data (Products, People, Accounts)
-  await prisma.chartOfAccount.deleteMany()
-  await prisma.product.deleteMany()
-  await prisma.customer.deleteMany()
-  await prisma.employee.deleteMany()
   
-  // Level 4: Core Config (Users, Settings, Currencies)
+  await prisma.purchaseOrder.deleteMany()
+  await prisma.productionOrder.deleteMany()
+  await prisma.productionReport.deleteMany()
+  
+  // Note: Delete Invoices after Waybills & Payments are gone
+  await prisma.salesInvoice.deleteMany()     
+  await prisma.proformaInvoice.deleteMany()
+  
+  await prisma.expense.deleteMany()
+  await prisma.payroll.deleteMany()
+  await prisma.journalEntry.deleteMany()
+  await prisma.announcement.deleteMany()
+
+  // Level 3: Master Data (Products, Assets, People)
+  await prisma.asset.deleteMany()
+  await prisma.product.deleteMany()          // Must delete before Category/Supplier
+  await prisma.productCategory.deleteMany()
+  
+  await prisma.supplier.deleteMany()
+  await prisma.customer.deleteMany()
+  
+  await prisma.employee.deleteMany()         // Must delete before Departments
+  await prisma.subDepartment.deleteMany()
+  await prisma.department.deleteMany()
+  
+  await prisma.chartOfAccount.deleteMany()
+
+  // Level 4: Core Configuration
   await prisma.systemSetting.deleteMany()
   await prisma.user.deleteMany()
   await prisma.currency.deleteMany()
@@ -159,11 +181,15 @@ async function main() {
   console.log('✅ Database Cleared.')
   console.log('🌱 Starting Fresh Seeding...')
 
-  // 2. Hash the password
+  // ====================================================================
+  // 2. CREATE USERS & SYSTEM DEFAULTS
+  // ====================================================================
+
+  // Hash the password
   const password = "Freedom@2024"
   const passwordHash = await bcrypt.hash(password, 12)
 
-  // 3. Define Users
+  // Define Users
   const usersToCreate = [
     {
       role: Role.SUPER_ADMIN,
@@ -207,7 +233,7 @@ async function main() {
     },
   ]
 
-  // 4. Create Users (Using create because we just wiped the DB)
+  // Create Users
   for (const user of usersToCreate) {
     const newUser = await prisma.user.create({
       data: {
@@ -221,7 +247,7 @@ async function main() {
     console.log(`✅ User Created: ${newUser.email} [${newUser.role}]`)
   }
 
-  // 5. Create Base Currency (Required for App to work)
+  // Create Base Currency (Required for App to work)
   const baseCurrency = await prisma.currency.create({
     data: {
       code: 'NGN',
@@ -233,7 +259,7 @@ async function main() {
   })
   console.log(`✅ Base Currency Created: ${baseCurrency.code}`)
 
-  // 6. Create Default System Settings
+  // Create Default System Settings
   await prisma.systemSetting.create({
     data: {
       companyName: 'KVTS INDUSTRIES CO., LTD.',
