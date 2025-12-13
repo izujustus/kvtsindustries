@@ -1552,7 +1552,7 @@ model JournalEntryLine {
 
 model SalesInvoice {
   id              String        @id @default(cuid())
-  invoiceNumber   String        @unique
+  invoiceNumber   String?        @unique
   customerId      String
   date            DateTime
   dueDate         DateTime
@@ -1562,6 +1562,10 @@ model SalesInvoice {
   
   currencyId      String
   exchangeRate    Decimal       @db.Decimal(18, 6) @default(1)
+
+  isPosted        Boolean       @default(false) 
+
+  status          InvoiceStatus @default(DRAFT)
   
   // Tax & Logistics
   subTotal        Decimal       @db.Decimal(18, 2) @default(0)
@@ -1573,7 +1577,7 @@ model SalesInvoice {
   paidAmount      Decimal       @db.Decimal(18, 2) @default(0)
   balanceDue      Decimal       @db.Decimal(18, 2)
   
-  status          InvoiceStatus @default(DRAFT)
+  
   notes           String?
   
   createdAt       DateTime      @default(now())
@@ -1615,8 +1619,12 @@ model SalesInvoiceItem {
 model Waybill {
   id              String       @id @default(cuid())
   salesInvoiceId  String       @unique
+
+  // 3. The "Gate Pass" details
+  waybillNumber   String       @unique // e.g., WB-2025-001
+  gatePassCode    String?      // A short code (e.g., A7X-99) for security to radio in
   
-  waybillNumber   String       @unique
+ 
   dispatchDate    DateTime     @default(now())
   
   vehicleNumber   String?
@@ -1624,6 +1632,7 @@ model Waybill {
   driverPhone     String?
   
   preparedBy      String?      // Staff Name
+  securityCheckBy String?      // Gate Security Name
   
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -1746,3 +1755,4 @@ model ProductionOrder {
 
   @@map("production_orders")
 }
+
