@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState, useRef } from 'react';
 import { createPurchaseOrder } from '@/app/lib/purchase-actions';
-import { Save, Loader2, Plus, Trash, AlertCircle, Search, X } from 'lucide-react';
+import { Loader2, Plus, Trash, AlertCircle, Search, X } from 'lucide-react';
 import clsx from 'clsx';
 
 const INPUT_CLASS = "block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#E30613] focus:ring-1 focus:ring-[#E30613] outline-none transition-all";
@@ -12,13 +12,19 @@ type Item = { productId: string; quantity: number; unitCost: number };
 
 export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers: any[], products: any[], onClose: () => void }) {
   const [state, action, isPending] = useActionState(createPurchaseOrder, undefined);
+  
+  // FORM STATE
   const [items, setItems] = useState<Item[]>([{ productId: '', quantity: 1, unitCost: 0 }]);
   const [total, setTotal] = useState(0);
+  
+  // [FIX] Track Supplier in State to guarantee it sends
+  const [supplierId, setSupplierId] = useState('');
 
   // SEARCH STATE
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
 
+  // Auto-calculate Total
   useEffect(() => {
     const t = items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
     setTotal(t);
@@ -40,36 +46,48 @@ export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers:
     setItems(newItems);
   };
 
-  // SEARCH LOGIC
   const filteredProducts = products.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <form action={action} className="space-y-6 h-[80vh] flex flex-col">
+      {/* [FIX] Hidden Inputs to ensure data is sent exactly as captured in state */}
       <input type="hidden" name="items" value={JSON.stringify(items)} />
+      <input type="hidden" name="supplierId" value={supplierId} /> 
       
       <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-        {/* HEADER */}
+        
+        {/* HEADER INFO */}
         <div className="grid grid-cols-2 gap-4">
             <div>
-            <label className={LABEL_CLASS}>Supplier</label>
-            <select name="supplierId" required className={INPUT_CLASS}>
-                <option value="">-- Select Supplier --</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+              <label className={LABEL_CLASS}>Supplier</label>
+              <select 
+                // [FIX] Controlled Component
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+                required 
+                className={INPUT_CLASS}
+              >
+                  <option value="">-- Select Supplier --</option>
+                  {suppliers.length > 0 ? (
+                    suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                  ) : (
+                    <option disabled>No Suppliers Found</option>
+                  )}
+              </select>
             </div>
             <div>
-            <label className={LABEL_CLASS}>Order Date</label>
-            <input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required className={INPUT_CLASS} />
+              <label className={LABEL_CLASS}>Order Date</label>
+              <input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required className={INPUT_CLASS} />
             </div>
         </div>
 
-        {/* ITEMS */}
+        {/* ITEMS TABLE */}
         <div className="border border-gray-200 rounded-xl overflow-visible">
             <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex justify-between items-center">
-            <h4 className="text-xs font-bold text-gray-700 uppercase">Items</h4>
-            <button type="button" onClick={addItem} className="text-xs flex items-center gap-1 text-blue-600 font-medium hover:underline">
-                <Plus className="w-3 h-3" /> Add Item
-            </button>
+              <h4 className="text-xs font-bold text-gray-700 uppercase">Items</h4>
+              <button type="button" onClick={addItem} className="text-xs flex items-center gap-1 text-blue-600 font-medium hover:underline">
+                  <Plus className="w-3 h-3" /> Add Item
+              </button>
             </div>
             
             <div className="p-2 space-y-3">
@@ -118,21 +136,21 @@ export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers:
 
                     <div className="w-20">
                         <input 
-                        type="number" 
-                        value={item.quantity} 
-                        onChange={(e) => updateItem(i, 'quantity', Number(e.target.value))}
-                        min="1"
-                        className={clsx(INPUT_CLASS)}
-                        placeholder="Qty"
+                          type="number" 
+                          value={item.quantity} 
+                          onChange={(e) => updateItem(i, 'quantity', Number(e.target.value))}
+                          min="1"
+                          className={clsx(INPUT_CLASS)}
+                          placeholder="Qty"
                         />
                     </div>
                     <div className="w-24">
                         <input 
-                        type="number" 
-                        value={item.unitCost} 
-                        onChange={(e) => updateItem(i, 'unitCost', Number(e.target.value))}
-                        className={clsx(INPUT_CLASS)}
-                        placeholder="Cost"
+                          type="number" 
+                          value={item.unitCost} 
+                          onChange={(e) => updateItem(i, 'unitCost', Number(e.target.value))}
+                          className={clsx(INPUT_CLASS)}
+                          placeholder="Cost"
                         />
                     </div>
                     <button type="button" onClick={() => removeItem(i)} className="p-2 text-red-400 hover:text-red-600 mt-0.5">
@@ -144,8 +162,8 @@ export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers:
             </div>
             
             <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-right">
-            <span className="text-sm text-gray-500 mr-2">Total:</span>
-            <span className="text-lg font-bold text-gray-900">₦{total.toLocaleString()}</span>
+              <span className="text-sm text-gray-500 mr-2">Total:</span>
+              <span className="text-lg font-bold text-gray-900">₦{total.toLocaleString()}</span>
             </div>
         </div>
 
@@ -154,9 +172,11 @@ export function PurchaseOrderForm({ suppliers, products, onClose }: { suppliers:
             <textarea name="notes" rows={2} className={INPUT_CLASS} placeholder="Delivery instructions..." />
         </div>
 
+        {/* ERROR DISPLAY */}
         {state?.message && !state.success && (
-            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" /> {state.message}
+            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2 border border-red-200">
+              <AlertCircle className="w-4 h-4" /> 
+              <span>{state.message}</span>
             </div>
         )}
       </div>
