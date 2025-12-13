@@ -271,6 +271,7 @@ const navItems: NavItem[] = [
       { name: 'All Products', href: '/dashboard/inventory', roles: ['ALL'] },
       { name: 'Categories', href: '/dashboard/inventory/categories', roles: ['ALL'] }, // NEW
       { name: 'Suppliers', href: '/dashboard/suppliers', roles: ['ALL'] }, // NEW
+      { name: 'ORDERS', href: '/dashboard/purchases', roles: ['ALL'] }, // NEW
     ]
   },
   
