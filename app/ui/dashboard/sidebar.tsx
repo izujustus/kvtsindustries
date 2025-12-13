@@ -282,8 +282,8 @@ const navItems: NavItem[] = [
     icon: CreditCard, 
     roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'],
     subItems: [
-      { name: 'Expenses', href: '/dashboard/accounting/expenses', roles: ['ALL'] },
-      { name: 'Supplier Payments', href: '/dashboard/accounting/supplier-payments', roles: ['ALL'] }, // NEW
+      // { name: 'Expenses', href: '/dashboard/accounting/expenses', roles: ['ALL'] },
+      // { name: 'Supplier Payments', href: '/dashboard/accounting/supplier-payments', roles: ['ALL'] }, // NEW
       { name: 'Ledger Entries', href: '/dashboard/accounting', roles: ['ALL'] },
     ]
   },
