@@ -30,17 +30,23 @@ async function generatePONumber() {
 
 // 2. CREATE PURCHASE ORDER
 export async function createPurchaseOrder(prevState: any, formData: FormData) {
-  const rawItems = formData.get('items') as string;
-  
+  // Fix: Correctly parse the JSON string from the hidden input
+  const rawItems = formData.get('items');
+  const itemsParsed = typeof rawItems === 'string' ? JSON.parse(rawItems) : [];
+
   const rawData = {
     supplierId: formData.get('supplierId'),
     date: formData.get('date'),
-    items: rawItems ? JSON.parse(rawItems) : [],
+    items: itemsParsed,
     notes: formData.get('notes'),
   };
 
   const validated = POSchema.safeParse(rawData);
-  if (!validated.success) return { message: 'Validation Failed', errors: validated.error.flatten().fieldErrors };
+  
+  if (!validated.success) {
+    console.error("Validation Errors:", validated.error.flatten().fieldErrors);
+    return { message: 'Validation Failed. Check inputs.', errors: validated.error.flatten().fieldErrors };
+  }
 
   const { supplierId, date, items, notes } = validated.data;
 
@@ -49,21 +55,20 @@ export async function createPurchaseOrder(prevState: any, formData: FormData) {
 
   try {
     const poNumber = await generatePONumber();
-    const createdById = "user_id_placeholder"; // Replace with actual session user ID in production
 
-    // We need a valid user to link 'createdById'. 
-    // Ideally, get this from auth(). For now, we fetch the first admin/user to avoid crash if auth isn't set up.
+    // Fetch a system user to link createdById (Prevents crash if auth missing)
     const systemUser = await prisma.user.findFirst(); 
-    if(!systemUser) return { message: 'System Error: No users found to assign PO.' };
+    if(!systemUser) return { success: false, message: 'System Error: No valid user found in database.' };
 
     await prisma.purchaseOrder.create({
       data: {
         poNumber,
         supplierId,
         date: new Date(date),
-        status: 'SENT', // Default to SENT (Assuming you create it when you order)
+        status: 'SENT', 
         totalAmount,
         createdById: systemUser.id, 
+        notes: notes || '',
         items: {
           create: items.map(item => ({
             productId: item.productId,
@@ -79,7 +84,7 @@ export async function createPurchaseOrder(prevState: any, formData: FormData) {
     return { success: true, message: 'Purchase Order Created' };
   } catch (e) {
     console.error(e);
-    return { success: false, message: 'Database Error' };
+    return { success: false, message: 'Database Error: Could not create order.' };
   }
 }
 
@@ -108,18 +113,17 @@ export async function receivePurchaseOrder(orderId: string) {
           }
         });
 
-        // 2. Update Product Stock & Cost Price (Optional: Weighted Average could go here)
+        // 2. Update Product Stock
         await tx.product.update({
           where: { id: item.productId },
           data: { 
             stockOnHand: { increment: item.quantity },
-            // Optional: Update cost price to latest purchase price?
-            // costPrice: item.unitCost 
+            // Optional: Update cost price here if needed
           }
         });
       }
 
-      // B. Update Supplier Balance (We now owe them this money)
+      // B. Update Supplier Balance
       await tx.supplier.update({
         where: { id: order.supplierId },
         data: { balance: { increment: order.totalAmount } }
@@ -140,11 +144,11 @@ export async function receivePurchaseOrder(orderId: string) {
   }
 }
 
-// 4. DELETE PO (Only if not received)
+// 4. DELETE PO
 export async function deletePurchaseOrder(id: string) {
   try {
     const po = await prisma.purchaseOrder.findUnique({ where: { id } });
-    if (po?.status === 'RECEIVED') return { success: false, message: 'Cannot delete received orders (stock already added).' };
+    if (po?.status === 'RECEIVED') return { success: false, message: 'Cannot delete received orders.' };
 
     await prisma.purchaseOrder.delete({ where: { id } });
     revalidatePath('/dashboard/purchases');

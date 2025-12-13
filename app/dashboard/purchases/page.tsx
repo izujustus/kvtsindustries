@@ -20,7 +20,6 @@ export default async function PurchasesPage({
     select: { id: true, name: true, stockOnHand: true, costPrice: true } 
   });
 
-  // [FIX] Convert Decimal to Number for Client Component
   const products = rawProducts.map(p => ({
     ...p,
     costPrice: Number(p.costPrice)
@@ -35,13 +34,15 @@ export default async function PurchasesPage({
       ]
     },
     include: { 
-      supplier: true, // Includes Decimal balance
-      items: true     // Includes Decimal unitCost & total
+      supplier: true, 
+      items: { 
+          include: { product: true } // [FIX] Added this to get Product Name
+      }
     },
     orderBy: { date: 'desc' }
   });
 
-  // [FIX] Deep conversion of Decimals for Orders
+  // Transform Decimals
   const orders = rawOrders.map(order => ({
     ...order,
     totalAmount: Number(order.totalAmount),
@@ -52,7 +53,9 @@ export default async function PurchasesPage({
     items: order.items.map(item => ({
       ...item,
       unitCost: Number(item.unitCost),
-      total: Number(item.total)
+      total: Number(item.total),
+      // Flatten product name for easier access if needed
+      productName: item.product.name 
     }))
   }));
 

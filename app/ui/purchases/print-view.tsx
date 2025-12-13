@@ -1,8 +1,7 @@
 'use client';
 
-import Image from 'next/image';
 import { useRef } from 'react';
-import { Printer, X, Download } from 'lucide-react';
+import { Printer, X } from 'lucide-react';
 
 export function PurchaseOrderPrint({ order, onClose }: { order: any, onClose: () => void }) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -14,7 +13,7 @@ export function PurchaseOrderPrint({ order, onClose }: { order: any, onClose: ()
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 print:p-0">
       
-      {/* ACTION BAR (Hidden when printing) */}
+      {/* ACTION BAR */}
       <div className="fixed top-4 right-4 flex gap-2 print:hidden z-[110]">
         <button 
           onClick={handlePrint} 
@@ -30,18 +29,15 @@ export function PurchaseOrderPrint({ order, onClose }: { order: any, onClose: ()
         </button>
       </div>
 
-      {/* DOCUMENT CONTAINER */}
+      {/* DOCUMENT */}
       <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-2xl overflow-y-auto max-h-[90vh] print:max-h-none print:w-full print:h-full print:shadow-none print:overflow-visible print:absolute print:inset-0 rounded-sm">
         <div ref={printRef} className="p-10 sm:p-16 space-y-8 text-sm text-gray-800 font-sans">
           
-          {/* 1. HEADER */}
+          {/* HEADER */}
           <div className="flex justify-between items-start border-b-2 border-gray-900 pb-6">
             <div className="flex flex-col gap-2">
-               {/* Placeholder for Logo */}
                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-10 h-10 bg-red-600 flex items-center justify-center text-white font-bold rounded">
-                    K
-                  </div>
+                  <div className="w-10 h-10 bg-red-600 flex items-center justify-center text-white font-bold rounded">K</div>
                   <span className="text-2xl font-black tracking-tighter text-gray-900">KVTS <span className="text-red-600">IND.</span></span>
                </div>
                <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Excellence in Production</div>
@@ -55,30 +51,27 @@ export function PurchaseOrderPrint({ order, onClose }: { order: any, onClose: ()
             </div>
           </div>
 
-          {/* 2. INFO GRID */}
+          {/* INFO GRID */}
           <div className="grid grid-cols-2 gap-12">
             <div>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">From (Buyer)</h3>
               <p className="font-bold text-lg">KVTS INDUSTRIES CO., LTD.</p>
               <p>Enugu Industrial Layout</p>
               <p>Enugu State, Nigeria</p>
-              <p className="mt-2">Phone: +234 800 000 0000</p>
-              <p>Email: procurement@kvts.com</p>
             </div>
             <div>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">To (Supplier)</h3>
               <p className="font-bold text-lg">{order.supplier.name}</p>
               <p>{order.supplier.email || 'No Email'}</p>
               <p>{order.supplier.phone || 'No Phone'}</p>
-              
               <div className="mt-6 flex justify-between border-t border-gray-100 pt-2">
                 <span className="font-bold text-gray-500">Date Issued:</span>
-                <span>{new Date(order.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                <span>{new Date(order.date).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
 
-          {/* 3. ITEMS TABLE */}
+          {/* ITEMS TABLE */}
           <div className="mt-8">
             <table className="w-full border-collapse">
               <thead>
@@ -93,9 +86,9 @@ export function PurchaseOrderPrint({ order, onClose }: { order: any, onClose: ()
                 {order.items.map((item: any, i: number) => (
                   <tr key={i}>
                     <td className="py-4 px-4">
-                      <p className="font-bold text-gray-900 text-sm">Product ID: {item.productId}</p>
-                      {/* Note: Ideally we pass product name, but if only ID is available in 'item' relation, we use that. 
-                          If your schema includes product relation in items, use item.product.name */}
+                      {/* [FIX] Showing Product Name instead of ID */}
+                      <p className="font-bold text-gray-900 text-sm">{item.product.name}</p>
+                      <p className="text-xs text-gray-500">{item.product.brand || 'Standard'}</p>
                     </td>
                     <td className="py-4 px-4 text-right">{item.quantity}</td>
                     <td className="py-4 px-4 text-right">₦{Number(item.unitCost).toLocaleString()}</td>
@@ -114,12 +107,12 @@ export function PurchaseOrderPrint({ order, onClose }: { order: any, onClose: ()
             </table>
           </div>
 
-          {/* 4. FOOTER / NOTES */}
+          {/* FOOTER */}
           <div className="grid grid-cols-2 gap-10 mt-12 pt-8 border-t border-gray-200">
              <div>
-               <h4 className="font-bold text-gray-900 mb-2 text-xs uppercase">Notes / Instructions</h4>
+               <h4 className="font-bold text-gray-900 mb-2 text-xs uppercase">Notes</h4>
                <p className="text-gray-500 italic bg-gray-50 p-3 rounded border border-gray-100 min-h-[80px]">
-                 {order.notes || "Please include PO Number on all invoices. Delivery expected within 7 days."}
+                 {order.notes || "Delivery expected within standard timeframe."}
                </p>
              </div>
              <div className="space-y-10">
@@ -129,46 +122,15 @@ export function PurchaseOrderPrint({ order, onClose }: { order: any, onClose: ()
                </div>
              </div>
           </div>
-
-          {/* 5. BRANDING FOOTER */}
-          <div className="mt-auto pt-10 text-center text-xs text-gray-400">
-            <p>This is a system generated document. KVTS Industries Co., Ltd.</p>
-          </div>
-
         </div>
       </div>
-
-      {/* PRINT CSS: Hides everything except the document */}
+      
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          .fixed {
-            position: absolute;
-            inset: 0;
-            background: white;
-          }
-          /* Hide custom scrollbars during print */
-          ::-webkit-scrollbar {
-            display: none;
-          }
-          /* Target the document container specifically */
-          .fixed > div:last-child,
-          .fixed > div:last-child * {
-            visibility: visible;
-          }
-          .fixed > div:last-child {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            box-shadow: none;
-            overflow: visible;
-          }
+          body * { visibility: hidden; }
+          .fixed { position: absolute; inset: 0; background: white; }
+          .fixed > div:last-child, .fixed > div:last-child * { visibility: visible; }
+          .fixed > div:last-child { position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; padding: 0; box-shadow: none; }
         }
       `}</style>
     </div>
