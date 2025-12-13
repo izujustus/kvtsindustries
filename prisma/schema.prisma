@@ -1617,6 +1617,7 @@ model PurchaseOrder {
   supplierId  String
   date        DateTime @default(now())
   status      String   @default("DRAFT")
+  notes         String?   @db.Text
 
   // --- NEW FIELDS ---
   paidAmount    Decimal   @db.Decimal(18, 2) @default(0)
