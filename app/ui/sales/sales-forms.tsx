@@ -1,9 +1,12 @@
 
+
 // 'use client';
 
 // import { useActionState, useEffect, useState, useRef } from 'react';
-// import { createCustomer, createInvoice, recordPayment } from '@/app/lib/sales-actions';
-// import { Plus, Trash, Search, X, ChevronDown, Wallet } from 'lucide-react'; // Added Wallet icon
+// import { createCustomer, recordPayment } from '@/app/lib/sales-actions';
+// // [UPDATED] Import the Draft Action
+// import { saveDraftInvoice } from '@/app/lib/invoice-lifecycle';
+// import { Plus, Trash, Search, X, ChevronDown, Wallet, Save } from 'lucide-react'; 
 // import clsx from 'clsx';
 
 // // 1. CUSTOMER FORM (Unchanged)
@@ -41,17 +44,24 @@
 //   );
 // }
 
-// // 2. INVOICE FORM (Updated: Shows Customer Balance/Credit)
-// export function InvoiceForm({ customers, products, onClose }: { customers: any[], products: any[], onClose: () => void }) {
-//   const [state, action, isPending] = useActionState(createInvoice, undefined);
+// // 2. INVOICE FORM (Updated for Draft Workflow)
+// export function InvoiceForm({ customers, products, onClose, initialData }: { customers: any[], products: any[], onClose: () => void, initialData?: any }) {
+//   // [UPDATED] Use saveDraftInvoice instead of createInvoice
+//   const [state, action, isPending] = useActionState(saveDraftInvoice, undefined);
   
 //   // Cart State
-//   const [items, setItems] = useState<{productId: string, quantity: number, unitPrice: number}[]>([]);
+//   const [items, setItems] = useState<{productId: string, quantity: number, unitPrice: number}[]>(
+//     initialData ? initialData.items.map((i: any) => ({
+//       productId: i.productId,
+//       quantity: i.quantity,
+//       unitPrice: Number(i.unitPrice)
+//     })) : []
+//   );
   
 //   // Customer Selection State
-//   const [customerSearch, setCustomerSearch] = useState('');
-//   const [selectedCustomerId, setSelectedCustomerId] = useState('');
-//   const [customerBalance, setCustomerBalance] = useState(0); // NEW: To track balance
+// const [customerSearch, setCustomerSearch] = useState(initialData ? initialData.customer.name : '');
+//   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData ? initialData.customerId : '');
+//   const [customerBalance, setCustomerBalance] = useState(initialData ? Number(initialData.customer.currentBalance) : 0);
 //   const [isCustOpen, setIsCustOpen] = useState(false);
 //   const custWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -67,8 +77,8 @@
 //   const [maxStock, setMaxStock] = useState(0);
 
 //   // Financial State
-//   const [taxRate, setTaxRate] = useState(7.5);
-//   const [logisticsFee, setLogisticsFee] = useState(0);
+//  const [taxRate, setTaxRate] = useState(initialData ? Number(initialData.taxRate) : 7.5);
+//   const [logisticsFee, setLogisticsFee] = useState(initialData ? Number(initialData.logisticsFee) : 0);
 
 //   useEffect(() => { if (state?.success) onClose(); }, [state, onClose]);
 
@@ -88,7 +98,7 @@
 //   const selectCustomer = (c: any) => {
 //     setSelectedCustomerId(c.id);
 //     setCustomerSearch(c.name);
-//     setCustomerBalance(Number(c.currentBalance)); // Capture balance
+//     setCustomerBalance(Number(c.currentBalance)); 
 //     setIsCustOpen(false);
 //   };
 //   const clearCustomer = () => {
@@ -164,7 +174,7 @@
 //               <input
 //                 type="text"
 //                 placeholder="Search Customer..."
-//                 className="block w-full rounded-md border border-gray-300 pl-3 pr-8 py-2 text-sm focus:border-[#E30613] focus:ring-[#E30613]"
+//                 className="block w-full rounded-md border border-gray-300 pl-3 pr-8 py-2 text-sm focus:border-blue-600 focus:ring-blue-600"
 //                 value={customerSearch}
 //                 onChange={(e) => { setCustomerSearch(e.target.value); setIsCustOpen(true); }}
 //                 onFocus={() => setIsCustOpen(true)}
@@ -179,7 +189,7 @@
 //               </div>
 //             </div>
 
-//             {/* BALANCE INDICATOR (Shows when customer is selected) */}
+//             {/* BALANCE INDICATOR */}
 //             {selectedCustomerId && (
 //                <div className="mt-1 flex items-center gap-1.5 text-xs">
 //                  <Wallet className="w-3 h-3 text-gray-400" />
@@ -201,7 +211,6 @@
 //                     return (
 //                       <div key={c.id} onClick={() => selectCustomer(c)} className="cursor-pointer select-none py-2 pl-3 pr-9 hover:bg-gray-100 flex justify-between">
 //                         <span className="block truncate">{c.name}</span>
-//                         {/* Show balance in dropdown too */}
 //                         {bal !== 0 && (
 //                             <span className={clsx("text-xs font-bold px-2 py-0.5 rounded", bal > 0 ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600")}>
 //                                 {bal > 0 ? `Debtor` : `Credit`}
@@ -233,7 +242,7 @@
 //           </div>
 //           <div>
 //             <label className="block text-xs font-bold text-gray-500 uppercase">Destination</label>
-//             <input name="destination" placeholder="e.g. Kano State" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#E30613] focus:ring-[#E30613]" />
+//             <input name="destination" placeholder="e.g. Kano State" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-600 focus:ring-blue-600" />
 //           </div>
 //         </div>
 
@@ -272,7 +281,7 @@
 //                           onClick={() => !isOutOfStock && handleProductSelect(p)}
 //                           className={clsx(
 //                             "cursor-pointer select-none relative py-2 pl-3 pr-9 border-b border-gray-50 last:border-0",
-//                             isOutOfStock ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:bg-red-50"
+//                             isOutOfStock ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:bg-blue-50"
 //                           )}
 //                         >
 //                           <div className="flex justify-between items-center">
@@ -359,7 +368,7 @@
 //             </div>
 //             <div className="flex justify-between items-center pt-2 border-t border-gray-200">
 //                 <span className="font-bold">Total Amount:</span>
-//                 <span className="text-xl font-bold text-[#E30613]">₦{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+//                 <span className="text-xl font-bold text-blue-700">₦{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
 //             </div>
 //         </div>
 
@@ -369,8 +378,16 @@
 
 //         <div className="flex justify-end gap-2">
 //           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
-//           <button disabled={isPending || items.length === 0 || !selectedCustomerId} className="bg-[#E30613] text-white px-4 py-2 rounded text-sm hover:bg-red-700 disabled:opacity-50">
-//             {isPending ? 'Generating...' : 'Generate Invoice'}
+//           {/* [UPDATED] Button Style & Text for Draft */}
+//           <button 
+//             disabled={isPending || items.length === 0 || !selectedCustomerId} 
+//             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+//           >
+//             {isPending ? 'Saving...' : (
+//               <>
+//                 <Save className="w-4 h-4" /> Save as Draft
+//               </>
+//             )}
 //           </button>
 //         </div>
 //       </div>
@@ -400,7 +417,7 @@
 //   }, []);
 
 //   const filteredInvoices = invoices.filter(inv => 
-//     inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+//     (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
 //     inv.customer.name.toLowerCase().includes(searchTerm.toLowerCase())
 //   );
 
@@ -524,7 +541,6 @@
 
 import { useActionState, useEffect, useState, useRef } from 'react';
 import { createCustomer, recordPayment } from '@/app/lib/sales-actions';
-// [UPDATED] Import the Draft Action
 import { saveDraftInvoice } from '@/app/lib/invoice-lifecycle';
 import { Plus, Trash, Search, X, ChevronDown, Wallet, Save } from 'lucide-react'; 
 import clsx from 'clsx';
@@ -564,12 +580,11 @@ export function CustomerForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-// 2. INVOICE FORM (Updated for Draft Workflow)
+// 2. INVOICE FORM (Updated for Editing)
 export function InvoiceForm({ customers, products, onClose, initialData }: { customers: any[], products: any[], onClose: () => void, initialData?: any }) {
-  // [UPDATED] Use saveDraftInvoice instead of createInvoice
   const [state, action, isPending] = useActionState(saveDraftInvoice, undefined);
   
-  // Cart State
+  // PRE-FILL DATA IF EDITING
   const [items, setItems] = useState<{productId: string, quantity: number, unitPrice: number}[]>(
     initialData ? initialData.items.map((i: any) => ({
       productId: i.productId,
@@ -578,10 +593,19 @@ export function InvoiceForm({ customers, products, onClose, initialData }: { cus
     })) : []
   );
   
-  // Customer Selection State
-const [customerSearch, setCustomerSearch] = useState(initialData ? initialData.customer.name : '');
+  // PRE-FILL CUSTOMER
+  const [customerSearch, setCustomerSearch] = useState(initialData ? initialData.customer.name : '');
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData ? initialData.customerId : '');
   const [customerBalance, setCustomerBalance] = useState(initialData ? Number(initialData.customer.currentBalance) : 0);
+
+  // PRE-FILL FINANCIALS
+  const [taxRate, setTaxRate] = useState(initialData ? Number(initialData.taxRate) : 7.5);
+  const [logisticsFee, setLogisticsFee] = useState(initialData ? Number(initialData.logisticsFee) : 0);
+  const [date, setDate] = useState(initialData ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(initialData ? new Date(initialData.dueDate).toISOString().split('T')[0] : '');
+  const [destination, setDestination] = useState(initialData ? initialData.destination : '');
+  const [loadingLocation, setLoadingLocation] = useState(initialData ? initialData.loadingLocation : 'Enugu KVTS Industries');
+
   const [isCustOpen, setIsCustOpen] = useState(false);
   const custWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -595,10 +619,6 @@ const [customerSearch, setCustomerSearch] = useState(initialData ? initialData.c
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState(0);
   const [maxStock, setMaxStock] = useState(0);
-
-  // Financial State
- const [taxRate, setTaxRate] = useState(initialData ? Number(initialData.taxRate) : 7.5);
-  const [logisticsFee, setLogisticsFee] = useState(initialData ? Number(initialData.logisticsFee) : 0);
 
   useEffect(() => { if (state?.success) onClose(); }, [state, onClose]);
 
@@ -746,23 +766,23 @@ const [customerSearch, setCustomerSearch] = useState(initialData ? initialData.c
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Invoice Date</label>
-            <input name="date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+            <input name="date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
           </div>
         </div>
         
         {/* Due Date & Logistics */}
         <div>
            <label className="block text-sm font-medium text-gray-700">Due Date</label>
-           <input name="dueDate" type="date" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+           <input name="dueDate" type="date" required value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
         </div>
         <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-md border border-gray-200">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase">Location of Loading</label>
-            <input name="loadingLocation" defaultValue="Enugu KVTS Industries" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+            <input name="loadingLocation" value={loadingLocation} onChange={(e) => setLoadingLocation(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase">Destination</label>
-            <input name="destination" placeholder="e.g. Kano State" required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-600 focus:ring-blue-600" />
+            <input name="destination" placeholder="e.g. Kano State" required value={destination} onChange={(e) => setDestination(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-600 focus:ring-blue-600" />
           </div>
         </div>
 
@@ -898,7 +918,6 @@ const [customerSearch, setCustomerSearch] = useState(initialData ? initialData.c
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
-          {/* [UPDATED] Button Style & Text for Draft */}
           <button 
             disabled={isPending || items.length === 0 || !selectedCustomerId} 
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
